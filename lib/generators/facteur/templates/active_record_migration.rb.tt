@@ -1,0 +1,27 @@
+# frozen_string_literal: true
+
+class <%= migration_class_name %> < ActiveRecord::Migration<%= migration_version %>
+  def change
+    create_table :facteur_mailings do |t|
+      t.references :resource, polymorphic: true
+      t.string :mailer_klass
+      t.string :mailer_method
+      t.jsonb :mailer_params
+      t.datetime :sent_at
+      t.string :subject
+      t.string :from
+      t.string :to
+      t.text :body
+      t.datetime :delivered_at
+      t.jsonb :events
+      t.datetime :processed_at
+      t.datetime :opened_at
+      t.datetime :clicked_at
+      t.datetime :error_at
+      t.string :error_msg
+      t.integer :status, default: 0, null: false
+
+      t.timestamps null: false
+    end
+  end
+end
