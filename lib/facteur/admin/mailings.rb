@@ -56,13 +56,13 @@ if defined?(ActiveAdmin)
 
         column do
           panel 'Contenu' do
-            attributes_table_for mail_notification do
+            attributes_table_for resource do
               row :to
               row :from
               row :subject
             end
             iframe style: 'width: 100%; height: 400px; border: none; margin-top: 14px;',
-              src: html_body_admin_mail_notification_path(mail_notification)
+                   src: html_body_admin_facteur_mailing_path(resource)
           end
 
           panel 'Events' do

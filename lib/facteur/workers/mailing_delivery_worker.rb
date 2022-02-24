@@ -5,9 +5,9 @@ module Facteur
   class MailingDeliveryWorker
     include Sidekiq::Worker
 
-    def perform(mail_notif_id)
-      @mail_notif = MailNotification.find(mail_notif_id)
-      @mail_notif.deliver
+    def perform(mailing_id)
+      @mailing_id = ::Facteur::Mailing.find(mailing_id)
+      @mailing_id.deliver
     end
   end
 end

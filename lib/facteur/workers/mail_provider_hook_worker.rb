@@ -17,19 +17,21 @@ module Facteur
     end
 
     def handle_event(event_data)
-      mail_notif = mail_notification_for_event(event_data)
-      return if mail_notif.blank?
+      mailing = mailing_for_event(event_data)
+      return if mailing.blank?
 
-      mail_notif.events ||= []
-      mail_notif.events.push(event_data.merge(provider: @provider))
-      mail_notif.save!
+      mailing.events ||= []
+      mailing.events.push(event_data.merge(provider: @provider))
+      mailing.save!
     end
 
-    def mail_notification_for_event(event_data)
+    def mailing_for_event(event_data)
+      return if event_data.blank?
+
       if @provider == :mailjet && event_data['CustomID'].present?
-        MailNotification.find(event_data['CustomID'])
+        ::Facteur::Mailing.find(event_data['CustomID'])
       elsif @provider == :sendgrid && event_data['mn_id'].present?
-        MailNotification.find(event_data['mn_id'])
+        ::Facteur::Mailing.find(event_data['mn_id'])
       end
     end
   end

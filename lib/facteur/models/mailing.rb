@@ -4,6 +4,8 @@ module Facteur
   # This class represents mail that we have sent. This is used to track which mail we send to whom,
   # and ensure that we do not send an email twice
   class Mailing < ActiveRecord::Base
+    include ::Facteur::ApplicationRecordable
+
     belongs_to :resource, polymorphic: true, optional: true
 
     before_save :compute_events
@@ -31,14 +33,14 @@ module Facteur
     end
 
     def self.create_if_unsent!(params)
-      mn = MailNotification.new(params)
-      mn.save! if mn.sent_mail_notifications.empty?
+      mn = new(params)
+      mn.save! if mn.sent_mailings.empty?
 
-      mn.sent_mail_notifications.first || mn
+      mn.sent_mailings.first || mn
     end
 
     def to_s
-      "MailNotification ##{id}"
+      "Facteur::Mailing ##{id}"
     end
 
     def will_be_blocked?
@@ -47,9 +49,9 @@ module Facteur
       !!to.match(/@example\.com$/)
     end
 
-    def sent_mail_notifications
+    def sent_mailings
       mns =
-        MailNotification
+        ::Facteur::Mailing
         .where(resource: resource,
                mailer_klass: mailer_klass,
                mailer_method: mailer_method)
@@ -67,23 +69,53 @@ module Facteur
       Object.const_get(mailer_klass)
     end
 
+    def compute_mail
+      if mailer <= Devise::Mailer
+        mailer.send(mailer_method, resource, *mailer_params)
+      else
+        mailer.send(mailer_method, *mailer_params)
+      end
+    end
+
+    # Method to override in the app world in order to skip some kind of messages
+    def should_skip?
+      false
+    end
+
     def deliver
+      if resource.respond_to?(:locale)
+        I18n.with_locale(resource.locale) do
+          inner_deliver
+        end
+      else
+        inner_deliver
+      end
+    end
+
+    def inner_deliver
       return if sent_at
       return if created_at < 1.day.ago
 
-      mail = mailer.send(mailer_method, *mailer_params)
-      if Rails.env.production?
-        mail.headers('X-SMTPAPI' => Oj.dump('unique_args' => { 'mn_id' => id }))
-      end
+      mail = if mailer <= Devise::Mailer
+               mailer.send(mailer_method, resource, *mailer_params)
+             else
+               mailer.send(mailer_method, *mailer_params)
+             end
+      compute_mail_headers(mail)
       compute_mail_fields(mail)
 
       return if will_be_blocked?
-      # Do not deliver for demo user tests
-      return if mailer == PromoterMailer && prospect_demo_user?
+      return if should_skip?
 
       mail.deliver_now
       self.sent_at ||= DateTime.current
       save!
+    end
+
+    def compute_mail_headers(mail)
+      return if Rails.env.production?
+
+      mail.headers('X-SMTPAPI' => Oj.dump('unique_args' => { 'mn_id' => id }))
     end
 
     def prospect_demo_user?
@@ -108,7 +140,7 @@ module Facteur
     end
 
     def status_class
-      case object.status.to_sym
+      case status.to_sym
       when :current_status_pending
         :orange
       when :current_status_sent, :current_status_processed
@@ -125,7 +157,7 @@ module Facteur
     protected
 
     def schedule_delivery
-      MailNotificationDeliveryWorker.perform_async(id)
+      ::Facteur::MailingDeliveryWorker.perform_async(id)
     end
 
     def compute_events
