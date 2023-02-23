@@ -2,6 +2,7 @@
 
 module Facteur
   # This will probably one day be extracted into a gem
+  # This is some common behavior not specific to Facteur
   module ApplicationRecordable
     extend ActiveSupport::Concern
 

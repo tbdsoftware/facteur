@@ -79,7 +79,11 @@ module Facteur
 
     # Method to override in the app world in order to skip some kind of messages
     def should_skip?
-      false
+      if mailer.respond_to?(:should_skip_facteur_mailing?)
+        mailer.should_skip_facteur_mailing?(self)
+      else
+        false
+      end
     end
 
     def deliver
@@ -98,14 +102,17 @@ module Facteur
 
       mail = if mailer <= Devise::Mailer
                mailer.send(mailer_method, resource, *mailer_params)
+             elsif mailer_params.is_a?(Hash)
+               # This is new parameterize method
+               mailer.with(mailer_params.with_indifferent_access).send(mailer_method)
              else
                mailer.send(mailer_method, *mailer_params)
              end
       compute_mail_headers(mail)
       compute_mail_fields(mail)
 
-      return if will_be_blocked?
       return if should_skip?
+      return if will_be_blocked?
 
       mail.deliver_now
       self.sent_at ||= DateTime.current
@@ -127,9 +134,10 @@ module Facteur
 
     def compute_mail_fields(mail)
       self.subject ||= mail.subject
-      self.from ||= mail.from.join(',')
-      self.to ||= mail.to.join(',')
-      self.body ||= mail.message.body.decoded.presence || mail.body.parts.first&.decoded
+      self.from ||= mail.from&.join(',')
+      self.to ||= mail.to&.join(',')
+      self.body ||= mail.message.body.presence&.decoded.presence ||
+                    mail.body.presence&.parts&.first&.decoded
       save!
     end
 
