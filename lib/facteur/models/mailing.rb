@@ -165,7 +165,7 @@ module Facteur
     protected
 
     def schedule_delivery
-      ::Facteur::MailingDeliveryWorker.perform_async(id)
+      ::Facteur::MailingDeliveryJob.perform_async(id)
     end
 
     def compute_events

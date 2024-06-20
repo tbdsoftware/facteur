@@ -2,8 +2,8 @@
 
 module Facteur
   # Handles delivery of mailings
-  class MailingDeliveryWorker
-    include Sidekiq::Worker
+  class MailingDeliveryJob
+    include Sidekiq::Job
 
     def perform(mailing_id)
       @mailing_id = ::Facteur::Mailing.find(mailing_id)

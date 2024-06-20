@@ -8,7 +8,7 @@ module Facteur
 
     def sendgrid
       json_params = request.body.read.presence && ActiveSupport::JSON.decode(request.body.read)
-      MailProviderHookWorker.perform_async(:sendgrid, json_params)
+      MailProviderHookJob.perform_async(:sendgrid, json_params)
 
       head 200
     end

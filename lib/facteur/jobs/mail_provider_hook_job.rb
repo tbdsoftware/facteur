@@ -1,9 +1,9 @@
 # frozen_string_literal: true
 
 module Facteur
-  # Worker responsible for treating inputs from mailjet/sendgrid
-  class MailProviderHookWorker
-    include Sidekiq::Worker
+  # Job responsible for treating inputs from mailjet/sendgrid
+  class MailProviderHookJob
+    include Sidekiq::Job
 
     def perform(provider, params)
       @provider = provider.to_sym
