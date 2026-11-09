@@ -28,5 +28,7 @@ RSpec.configure do |config|
   config.before do
     Sidekiq::Job.clear_all
     ActionMailer::Base.deliveries.clear
+    Facteur.provider = :sendgrid
+    Facteur.scaleway_webhook_token = nil
   end
 end
