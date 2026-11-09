@@ -5,6 +5,8 @@ if defined?(ActiveAdmin)
     menu parent: 'Admin'
     actions :all, except: %i[new create edit update]
 
+    filter :status, as: :select, collection: -> { ::Facteur::Mailing.collection_from_enum_with_ivalues(:status) }
+    filter :skip_reason, as: :select, collection: -> { ::Facteur::Mailing::SKIP_REASONS }
     filter :mailer_method
     filter :sent_at
     filter :created_at
@@ -15,6 +17,7 @@ if defined?(ActiveAdmin)
       column :status do |mn|
         status_tag mn.human_enum_name(:status), class: mn.status_class
       end
+      column :skip_reason
       column :mailer_klass
       column :mailer_method
       column :to
@@ -36,6 +39,7 @@ if defined?(ActiveAdmin)
             row :mailer_klass
             row :mailer_method
             row :mailer_params
+            row :provider_message_ids
           end
 
           attributes_table title: 'Dates' do
@@ -44,6 +48,7 @@ if defined?(ActiveAdmin)
             row :delivered_at
             row :opened_at
             row :clicked_at
+            row :skipped_at
             row :created_at
             row :updated_at
           end
@@ -51,6 +56,11 @@ if defined?(ActiveAdmin)
           attributes_table title: 'Error' do
             row :error_msg
             row :error_at
+          end
+
+          attributes_table title: 'Skip' do
+            row :skip_reason
+            row :skipped_at
           end
         end
 
