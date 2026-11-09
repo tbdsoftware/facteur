@@ -1,5 +1,7 @@
 # frozen_string_literal: true
 
+require 'oj'
+require 'sidekiq'
 require 'facteur/engine'
 require 'facteur/models/concerns/devise_facteurable'
 require 'facteur/models/concerns/application_recordable'

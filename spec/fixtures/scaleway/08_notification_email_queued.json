@@ -1,0 +1,11 @@
+{
+  "Type": "Notification",
+  "MessageId": "78409290-4aa8-4cf9-93a3-e1fcf4a82742",
+  "TopicArn": "arn:scw:sns:fr-par:project-a78227f3-3c87-4ef6-b8c1-5ca4280bf608:facteur-tem-test",
+  "Message": "{\"id\":\"8375a80d-946a-4bfd-94e3-4a6693d96343\",\"type\":\"email_queued\",\"organization_id\":\"a78227f3-3c87-4ef6-b8c1-5ca4280bf608\",\"project_id\":\"a78227f3-3c87-4ef6-b8c1-5ca4280bf608\",\"domain_id\":\"eb76570f-3851-44cb-8a03-819a77d8054d\",\"domain_name\":\"tbds.fr\",\"created_at\":\"2026-11-09T03:01:51.184666Z\",\"email_id\":\"241da97d-142c-4ee7-b467-c1f800982af9\",\"email_from\":\"no-reply@tbds.fr\",\"email_to\":\"recipient@facteur-test-nomx-d3ab0cfd908a.com\",\"email_headers\":[{\"key\":\"from\",\"value\":\"no-reply@tbds.fr\"},{\"key\":\"to\",\"value\":\"recipient@facteur-test-nomx-d3ab0cfd908a.com\"},{\"key\":\"subject\",\"value\":\"Test webhook Facteur test-4-d3ab0cfd908a\"},{\"key\":\"date\",\"value\":\"Mon, 09 Nov 2026 04:01:50 +0100\"},{\"key\":\"message-id\",\"value\":\"\\u003c3ca29449-5c45-42f7-a7ce-f6d4d1dceb3e@tbds.fr\\u003e\"},{\"key\":\"x-facteur-mailing-id\",\"value\":\"test-4-d3ab0cfd908a\"},{\"key\":\"content-type\",\"value\":\"text/plain; charset=UTF-8\"}],\"email_queued_at\":\"2026-11-09T03:01:51.095955Z\"}",
+  "Timestamp": "2026-11-09T03:01:52Z",
+  "SignatureVersion": "1",
+  "Signature": "dkhI13+IvdYQRMA4oLVRWAO6Ety1nMaGd6Ya/1ijPSfRdGsqD0xPOaKuDyVmXxK6pWz+qOpwpVul8YxUG6+ENj8ORKnP7aG5gHkug9mw/nQjrzXDmo/9nlI3Pj77f8+WPHWpN9hOGA8o2mjtOYnx73sdzFEzpPDetW0rB/A1uQ7KIvsouXASE7ay3wVsh7//0P0O/kCDkfERoCErsNk+lD9IUHKAHlkks1Epog162vSN9wPMwT1osIQn+h7lP1Np6zd4JQvdbMB+yWRUzC6vRyjTnr8tOL6o2eCd4lekhpBnLKYDfUo2CZjS3tju2d/W1JXTxDJnNJImY+dWLGBPfw==",
+  "SigningCertURL": "https://messaging.s3.fr-par.scw.cloud/fr-par/sns/sns_certificate_0c099e58091dfc9a2d686099b0fa5eae6ec43ef9.pem",
+  "UnsubscribeURL": "https://sns.mnq.fr-par.scaleway.com/?Action=Unsubscribe&SubscriptionArn=arn:scw:sns:fr-par:project-a78227f3-3c87-4ef6-b8c1-5ca4280bf608:facteur-tem-test:b6addc97-362f-4b09-9d3a-c791ad485b6b"
+}

@@ -1,0 +1,11 @@
+{
+  "Type": "Notification",
+  "MessageId": "e463e6aa-4680-483a-82a1-00cda6df91da",
+  "TopicArn": "arn:scw:sns:fr-par:project-a78227f3-3c87-4ef6-b8c1-5ca4280bf608:facteur-tem-test",
+  "Message": "{\"id\":\"8c0051f0-f8e3-4456-94e5-d6666b0d3986\",\"type\":\"email_queued\",\"organization_id\":\"a78227f3-3c87-4ef6-b8c1-5ca4280bf608\",\"project_id\":\"a78227f3-3c87-4ef6-b8c1-5ca4280bf608\",\"domain_id\":\"eb76570f-3851-44cb-8a03-819a77d8054d\",\"domain_name\":\"tbds.fr\",\"created_at\":\"2026-11-09T03:01:28.636399Z\",\"email_id\":\"b3f44b09-5c63-4ae4-85e6-26a99c5dc455\",\"email_from\":\"no-reply@tbds.fr\",\"email_to\":\"recipient@gmail.com\",\"email_headers\":[{\"key\":\"from\",\"value\":\"no-reply@tbds.fr\"},{\"key\":\"to\",\"value\":\"recipient@gmail.com\"},{\"key\":\"subject\",\"value\":\"Test webhook Facteur test-2-d3ab0cfd908a\"},{\"key\":\"date\",\"value\":\"Mon, 09 Nov 2026 04:01:28 +0100\"},{\"key\":\"message-id\",\"value\":\"\\u003c03e26122-2109-4dee-bc23-6e278d1c9a5e@tbds.fr\\u003e\"},{\"key\":\"x-facteur-mailing-id\",\"value\":\"test-2-d3ab0cfd908a\"},{\"key\":\"content-type\",\"value\":\"text/plain; charset=UTF-8\"}],\"email_queued_at\":\"2026-11-09T03:01:28.605072Z\"}",
+  "Timestamp": "2026-11-09T03:01:30Z",
+  "SignatureVersion": "1",
+  "Signature": "Omv7pV7hy4q+1hjjxyudnMyjB4Mh5iPATVwDp637mb48m6ozvyDGCtzC9JHKo9Ar7LfDxN7yO2xJdcnnlJWURiJy/ElKatujniZvi3sk5EwClMFefYdTIr3EYiLOJ3v0/9tDdka9EJEoZroPr8CWA46abJ6yZ/1wBSfdOZpklyiADLV+vk9DrlFG04VxLmIXklyx+w2PGi04IFqCYQYzHrTV8TjN+tU31Tqt1jJ/2Vgi6YXDE5KxVSkHtqtfhIrA5tQlhgl6IJxp3V+oUjyYXFdhY6BNPqILf71+eaLSmmmo16D+gjeGHoaZnPy1RqWaBb2XhxO4Q6Q/lP5CDbvPqg==",
+  "SigningCertURL": "https://messaging.s3.fr-par.scw.cloud/fr-par/sns/sns_certificate_0c099e58091dfc9a2d686099b0fa5eae6ec43ef9.pem",
+  "UnsubscribeURL": "https://sns.mnq.fr-par.scaleway.com/?Action=Unsubscribe&SubscriptionArn=arn:scw:sns:fr-par:project-a78227f3-3c87-4ef6-b8c1-5ca4280bf608:facteur-tem-test:b6addc97-362f-4b09-9d3a-c791ad485b6b"
+}
