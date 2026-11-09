@@ -2,4 +2,5 @@
 
 Facteur::Engine.routes.draw do
   post 'sendgrid', to: 'webhooks#sendgrid'
+  post 'scaleway/:token', to: 'webhooks#scaleway'
 end

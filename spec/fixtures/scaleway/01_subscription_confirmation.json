@@ -1,0 +1,12 @@
+{
+  "Type": "SubscriptionConfirmation",
+  "Token": "REDACTED",
+  "MessageId": "b671feb0-ffdb-4994-b13e-60474963a214",
+  "TopicArn": "arn:scw:sns:fr-par:project-a78227f3-3c87-4ef6-b8c1-5ca4280bf608:facteur-tem-test",
+  "Message": "You have chosen to subscribe to the topic arn:scw:sns:fr-par:project-a78227f3-3c87-4ef6-b8c1-5ca4280bf608:facteur-tem-test.\nTo confirm the subscription, visit the SubscribeURL included in this message.",
+  "Timestamp": "2026-11-09T02:59:57Z",
+  "SignatureVersion": "1",
+  "Signature": "QptJeMsBqg/kA9e4iXr2sm5VwPmPYBondIHeRFuohnu6ksOw+RtJ8Lqw1QmXGDv+uooq0X1+zoTfeLUmYO20ADH3DU1XrEN25NwF96FyZR8SiKxYpZPmNL9C55UYvfEDilaJDygQsM3gcgDOBYJJ4Ux0PleI3U03lzIWCS+Yu24po/13E5Gqz0W3A2iJBbfwNRiHk7xNxzFeXlqKZ0EWvsDMFHzX1huIloshneIIVxkho3qY+PW8f4BgEy1lnsmY5ZIM/wtDD1032BrjMCXe0vnFS/QPe2RbK2nHcT2uSJ8cOqj7IaXxchTVo0Vj2wRUDCi8zrCQRq9SUjx8DrjmPA==",
+  "SigningCertURL": "https://messaging.s3.fr-par.scw.cloud/fr-par/sns/sns_certificate_0c099e58091dfc9a2d686099b0fa5eae6ec43ef9.pem",
+  "SubscribeURL": "https://sns.mnq.fr-par.scaleway.com/?Action=ConfirmSubscription&TopicArn=arn:scw:sns:fr-par:project-a78227f3-3c87-4ef6-b8c1-5ca4280bf608:facteur-tem-test&Token=REDACTED"
+}

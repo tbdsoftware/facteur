@@ -1,0 +1,9 @@
+# frozen_string_literal: true
+
+class <%= migration_class_name %> < ActiveRecord::Migration<%= migration_version %>
+  def change
+    add_column :facteur_mailings, :skipped_at, :datetime
+    add_column :facteur_mailings, :skip_reason, :string
+    add_column :facteur_mailings, :provider_message_ids, :jsonb, default: [], null: false
+  end
+end

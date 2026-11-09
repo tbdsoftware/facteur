@@ -1,0 +1,11 @@
+{
+  "Type": "Notification",
+  "MessageId": "3004c85d-30db-4680-8fd7-1d644d85817f",
+  "TopicArn": "arn:scw:sns:fr-par:project-a78227f3-3c87-4ef6-b8c1-5ca4280bf608:facteur-tem-test",
+  "Message": "{\"id\":\"7e97cfcf-1b94-4987-aaf1-daf82338333d\",\"type\":\"blocklist_created\",\"organization_id\":\"a78227f3-3c87-4ef6-b8c1-5ca4280bf608\",\"project_id\":\"a78227f3-3c87-4ef6-b8c1-5ca4280bf608\",\"domain_id\":\"eb76570f-3851-44cb-8a03-819a77d8054d\",\"domain_name\":\"tbds.fr\",\"created_at\":\"2026-11-09T03:01:29.047403Z\",\"email_to\":\"recipient@gmail.com\",\"blocklist_id\":\"d1b78c8c-b049-463f-9f0d-457117a0645c\",\"blocklist_type\":\"mailbox_not_found\",\"blocklist_reason\":\"550 mailbox not found\"}",
+  "Timestamp": "2026-11-09T03:01:31Z",
+  "SignatureVersion": "1",
+  "Signature": "reWrda7EB0dtixnkajV6Q/lPCYH0UYYG/x0S1fWtvrcfUWG8soP60YeUEI8jJL5uSIR+x1BTHPj6oDGcYGTtBlw3mklnGRJ5sAa8Sk1j53NawEQwq7/3/ZeBZ9vfMQ6PAlr85i7olXV8tpPh3vWZkIhgd/s13ZNFewJMb4XnnyjlK9x2uXqn8wk6RYB/jEdhjehfcP5VE4GE/65GsPoVmixokK8xjrm1i/DthuFK57icd84C4IoAg7RTB3UsT1OBVMQ8G1eV9b7S0opPJKoaxiRclPGYO9MAuQNM/BtyWnuJVFN2+RApZr8qTt/U2jee7WP8op1J7uFZfNRDDCb+uQ==",
+  "SigningCertURL": "https://messaging.s3.fr-par.scw.cloud/fr-par/sns/sns_certificate_0c099e58091dfc9a2d686099b0fa5eae6ec43ef9.pem",
+  "UnsubscribeURL": "https://sns.mnq.fr-par.scaleway.com/?Action=Unsubscribe&SubscriptionArn=arn:scw:sns:fr-par:project-a78227f3-3c87-4ef6-b8c1-5ca4280bf608:facteur-tem-test:b6addc97-362f-4b09-9d3a-c791ad485b6b"
+}

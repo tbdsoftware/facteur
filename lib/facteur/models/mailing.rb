@@ -1,12 +1,22 @@
 # frozen_string_literal: true
 
+require 'net/smtp'
+
 module Facteur
   # This class represents mail that we have sent. This is used to track which mail we send to whom,
   # and ensure that we do not send an email twice
   class Mailing < ActiveRecord::Base
     include ::Facteur::ApplicationRecordable
 
+    # 'suppressed' is reserved for a future suppression list and is not set yet
+    SKIP_REASONS = %w[expired skipped blocked_recipient suppressed].freeze
+    ERROR_EVENTS = %w[dropped bounce spamreport].freeze
+    # Scaleway emits this generic terminal event alongside the specific one (e.g. email_mailbox_not_found)
+    GENERIC_DROP_TYPE = 'email_dropped'
+
     belongs_to :resource, polymorphic: true, optional: true
+
+    validates :skip_reason, inclusion: { in: SKIP_REASONS }, allow_nil: true
 
     before_save :compute_events
     before_save :compute_status
@@ -19,11 +29,12 @@ module Facteur
       current_status_delivered: 3,
       current_status_opened: 4,
       current_status_clicked: 5,
+      current_status_skipped: 98,
       current_status_error: 99
     }
 
     # Define methods for all our possible date stuff value
-    %i[pending sent processed delivered opened clicked error].each do |method|
+    %i[pending sent processed delivered opened clicked skipped error].each do |method|
       scope method, -> { where.not("#{method}_at" => nil) }
       scope "not_#{method}".to_sym, -> { where("#{method}_at" => nil) }
 
@@ -70,7 +81,7 @@ module Facteur
     end
 
     def compute_mail
-      if mailer <= Devise::Mailer
+      if devise_mailer?
         mailer.send(mailer_method, resource, *mailer_params)
       else
         mailer.send(mailer_method, *mailer_params)
@@ -97,10 +108,10 @@ module Facteur
     end
 
     def inner_deliver
-      return if sent_at
-      return if created_at < 1.day.ago
+      return if sent_at || skipped_at || error_at
+      return skip!('expired') if created_at < 1.day.ago
 
-      mail = if mailer <= Devise::Mailer
+      mail = if devise_mailer?
                mailer.send(mailer_method, resource, *mailer_params)
              elsif mailer_params.is_a?(Hash)
                # This is new parameterize method
@@ -111,18 +122,28 @@ module Facteur
       compute_mail_headers(mail)
       compute_mail_fields(mail)
 
-      return if should_skip?
-      return if will_be_blocked?
+      return skip!('skipped') if should_skip?
+      return skip!('blocked_recipient') if will_be_blocked?
 
-      mail.deliver_now
+      begin
+        mail.deliver_now
+      rescue Net::SMTPFatalError, Net::SMTPSyntaxError => e
+        return reject!(e)
+      end
+
       self.sent_at ||= DateTime.current
       save!
     end
 
-    def compute_mail_headers(mail)
-      return if Rails.env.production?
+    def skip!(reason)
+      self.skipped_at = Time.current
+      self.skip_reason = reason
+      save!
+    end
 
-      mail.headers('X-SMTPAPI' => Oj.dump('unique_args' => { 'mn_id' => id }))
+    def compute_mail_headers(mail)
+      mail.headers('X-Facteur-Mailing-Id' => id.to_s)
+      mail.headers('X-SMTPAPI' => Oj.dump('unique_args' => { 'mn_id' => id })) if Facteur.provider.to_s == 'sendgrid'
     end
 
     def prospect_demo_user?
@@ -134,17 +155,20 @@ module Facteur
 
     def compute_mail_fields(mail)
       self.subject ||= mail.subject
-      self.from ||= mail.from&.join(',')
-      self.to ||= mail.to&.join(',')
+      # Mail returns a String instead of an Array for an unparsable address
+      self.from ||= Array(mail.from).join(',').presence
+      self.to ||= Array(mail.to).join(',').presence
       self.body ||= mail.message.body.presence&.decoded.presence ||
                     mail.body.presence&.parts&.first&.decoded
       save!
     end
 
     def sorted_events
-      events
-        .each.with_index { |e, i| events[i]['datetime'] = Time.zone.at(e['timestamp']).to_datetime }
-        .sort { |ea, eb| ea['timestamp'] <=> eb['timestamp'] }
+      (events || [])
+        .map { |e| e.merge('datetime' => Time.zone.at(e['timestamp'].to_f.to_r.round(6)).to_datetime) }
+        .each_with_index
+        .sort_by { |e, i| [e['timestamp'].to_f, i] }
+        .map(&:first)
     end
 
     def status_class
@@ -157,6 +181,8 @@ module Facteur
         :gray
       when :current_status_opened, :current_status_clicked
         :green
+      when :current_status_skipped
+        :yellow
       when :current_status_error
         :red
       end
@@ -168,13 +194,31 @@ module Facteur
       ::Facteur::MailingDeliveryJob.perform_async(id)
     end
 
+    def devise_mailer?
+      defined?(::Devise::Mailer) && mailer <= ::Devise::Mailer
+    end
+
+    def reject!(error)
+      self.events = (events || []) + [{
+        'event' => 'dropped',
+        'type' => 'smtp_rejected',
+        'reason' => error.message.strip,
+        'provider' => 'smtp',
+        'timestamp' => Time.current.to_f,
+        'provider_event_id' => nil
+      }]
+      save!
+    end
+
     def compute_events
       return unless events_changed?
       return if events.blank?
 
       self.error_msg = nil
-      sorted_events.each do |event|
-        case event['event'].downcase
+      ordered_events = sorted_events
+      specific_error = ordered_events.any? { |e| error_event?(e) && e['type'] != GENERIC_DROP_TYPE }
+      ordered_events.each do |event|
+        case event['event'].to_s.downcase
         when 'processed'
           self.processed_at ||= event['datetime']
         when 'delivered'
@@ -183,11 +227,15 @@ module Facteur
           self.opened_at ||= event['datetime']
         when 'click'
           self.clicked_at ||= event['datetime']
-        when 'dropped', 'bounce', 'spamreport'
-          self.error_msg = error_msg_for_event(event)
-          self.error_at ||= event['datetime']
+        when *ERROR_EVENTS
+          self.error_msg = error_msg_for_event(event) if !specific_error || event['type'] != GENERIC_DROP_TYPE
+          self.error_at = [error_at, event['datetime']].compact.min
         end
       end
+    end
+
+    def error_event?(event)
+      ERROR_EVENTS.include?(event['event'].to_s.downcase)
     end
 
     def error_msg_for_event(event)
@@ -198,12 +246,17 @@ module Facteur
                   event['event'].downcase
                 end
 
-      (error_msg || '').split('; ').push(new_msg).join('; ')
+      messages = (error_msg || '').split('; ')
+      return error_msg if messages.include?(new_msg)
+
+      messages.push(new_msg).join('; ')
     end
 
     def compute_status
       self.status = if error_at.present?
                       :current_status_error
+                    elsif skipped_at.present?
+                      :current_status_skipped
                     elsif clicked_at.present?
                       :current_status_clicked
                     elsif opened_at.present?
