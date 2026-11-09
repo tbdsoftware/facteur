@@ -41,7 +41,8 @@ RSpec.describe 'POST /facteur/scaleway/:token' do
 
   context 'with a SigningCertURL outside Scaleway' do
     %w[https://evil.example.com/x.pem
-       http://messaging.s3.fr-par.scw.cloud/fr-par/sns/facteur_test_certificate.pem].each do |url|
+       http://messaging.s3.fr-par.scw.cloud/fr-par/sns/facteur_test_certificate.pem
+       https://messaging.s3.fr-par.scw.cloud:8443/fr-par/sns/facteur_test_certificate.pem].each do |url|
       it "refuses #{url} without any request" do
         envelope = fixture_envelope('signed_raw/email_queued.json').merge('SigningCertURL' => url)
 
@@ -86,7 +87,7 @@ RSpec.describe 'POST /facteur/scaleway/:token' do
   end
 
   it 'answers 400 to a body that is not JSON' do
-    post_sns('pas du json', token: token)
+    post_sns('not json', token: token)
 
     expect(response).to have_http_status(:bad_request)
     expect(hook_jobs).to be_empty
@@ -145,6 +146,15 @@ RSpec.describe 'POST /facteur/scaleway/:token' do
       expect(response).to have_http_status(:ok)
       expect(a_request(:get, /evil\.example\.com/)).not_to have_been_made
       expect(Rails.logger).to have_received(:warn).with(include(evil_url).and(include('Confirm subscription')))
+    end
+
+    it 'does not visit a SubscribeURL on another port' do
+      port_url = subscribe_url.sub('scaleway.com/', 'scaleway.com:8443/')
+
+      post_sns(sign_envelope(confirmation.merge('SubscribeURL' => port_url)), token: token)
+
+      expect(response).to have_http_status(:ok)
+      expect(a_request(:get, /sns\.mnq\.fr-par\.scaleway\.com/)).not_to have_been_made
     end
 
     it 'does not visit a SubscribeURL over http' do

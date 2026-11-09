@@ -48,7 +48,7 @@ module Facteur
 
       def subscribe_uri
         uri = URI.parse(@url)
-        uri if uri.scheme == 'https' && uri.host.to_s.match?(SUBSCRIBE_HOST_FORMAT)
+        uri if uri.scheme == 'https' && uri.port == 443 && uri.host.to_s.match?(SUBSCRIBE_HOST_FORMAT)
       rescue URI::InvalidURIError
         nil
       end

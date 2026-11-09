@@ -47,7 +47,7 @@ module Facteur
 
       def certificate_uri
         uri = URI.parse(@envelope['SigningCertURL'].to_s)
-        uri if uri.scheme == 'https' && uri.host.to_s.match?(CERT_HOST_FORMAT)
+        uri if uri.scheme == 'https' && uri.port == 443 && uri.host.to_s.match?(CERT_HOST_FORMAT)
       rescue URI::InvalidURIError
         nil
       end

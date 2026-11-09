@@ -29,6 +29,15 @@ Mailings are created with `Facteur::Mailing.create!` (or `create_if_unsent!` to 
 and delivered by `Facteur::MailingDeliveryJob`. Include `Facteur::DeviseFacteurable` in a Devise model to send
 Devise notifications through Facteur.
 
+## Upgrading (e.g. Hamelin)
+
+1. Run `bin/rails g facteur:active_record` and `bin/rails db:migrate` **before** deploying the new code:
+   `compute_status` reads `skipped_at` on every save, so `Facteur::Mailing.create!` fails until the
+   `add_tracking_to_facteur_mailings` columns exist. The migration only adds 3 columns (the `jsonb` default is
+   metadata-only on PostgreSQL 11+, no backfill, no long lock).
+2. Apps sending through Scaleway must set `config.provider = :scaleway`: the default `:sendgrid` now adds
+   `X-SMTPAPI` in every environment, production included.
+
 ## Configuration
 
 ```ruby
@@ -70,6 +79,9 @@ Events are attached to their mailing through the `X-Facteur-Mailing-Id` header f
 An event already recorded (same provider event id) is ignored, so SNS redeliveries are harmless.
 
 ## Scaleway setup
+
+> The token is part of the URL path, so it appears in your host's request logs: keep those logs private and
+> rotate the token (credentials + subscription) if they leak.
 
 1. **Topic**: in the Scaleway console, Topics and Events, activate SNS in the project and region of the TEM
    domain (e.g. `fr-par`), create SNS credentials with `can_manage` **and** `can_receive` (both are needed to

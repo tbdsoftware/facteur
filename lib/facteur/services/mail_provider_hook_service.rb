@@ -61,7 +61,8 @@ module Facteur
 
     def duplicate?(mailing, event)
       event_id = event['provider_event_id']
-      event_id.present? && (mailing.events || []).any? { |e| e['provider_event_id'] == event_id }
+      event_id.present? &&
+        (mailing.events || []).any? { |e| (e['provider_event_id'] || e['sg_event_id']) == event_id }
     end
 
     def log(level, message)

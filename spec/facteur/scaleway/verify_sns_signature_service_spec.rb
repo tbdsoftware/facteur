@@ -101,6 +101,7 @@ RSpec.describe Facteur::Scaleway::VerifySnsSignatureService do
       'http://messaging.s3.fr-par.scw.cloud/fr-par/sns/facteur_test_certificate.pem',
       'https://messaging.s3.fr-par.scw.cloud.evil.example.com/x.pem',
       'https://messaging.s3.fr-par.scw.cloud@evil.example.com/x.pem',
+      'https://messaging.s3.fr-par.scw.cloud:8443/fr-par/sns/facteur_test_certificate.pem',
       'not a url'
     ].each do |url|
       it "rejects #{url} without any HTTP request" do

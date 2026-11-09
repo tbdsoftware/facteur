@@ -254,6 +254,15 @@ RSpec.describe Facteur::MailProviderHookJob do
       expect(mailing.reload.events).to be_nil
     end
 
+    it 'does not record again an event stored before normalization (sg_event_id only)' do
+      legacy = sendgrid_events.first.merge('provider' => 'sendgrid')
+      mailing.update!(events: [legacy])
+
+      perform('sendgrid', sendgrid_events.first)
+
+      expect(mailing.reload.events).to eq([legacy])
+    end
+
     it 'records the same SendGrid event only once' do
       2.times { perform('sendgrid', sendgrid_events) }
 
