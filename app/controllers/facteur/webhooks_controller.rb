@@ -39,6 +39,7 @@ module Facteur
     end
 
     def handle_sns_envelope(envelope)
+      Rails.logger.info("[Facteur] Scaleway SNS #{envelope['Type']} #{envelope['MessageId']} signature verified")
       case envelope['Type']
       when 'SubscriptionConfirmation'
         Scaleway::ConfirmSubscriptionService.new(envelope).call

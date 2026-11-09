@@ -69,6 +69,7 @@ module Facteur
           http.get(uri.request_uri)
         end
         if response.is_a?(Net::HTTPSuccess)
+          Rails.logger.info("[Facteur] SNS certificate downloaded from #{uri}")
           OpenSSL::X509::Certificate.new(response.body)
         else
           Rails.logger.warn("[Facteur] SNS certificate download failed: #{uri} answered #{response.code}")
