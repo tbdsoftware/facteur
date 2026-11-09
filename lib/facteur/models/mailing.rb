@@ -155,8 +155,9 @@ module Facteur
 
     def compute_mail_fields(mail)
       self.subject ||= mail.subject
-      self.from ||= mail.from&.join(',')
-      self.to ||= mail.to&.join(',')
+      # Mail returns a String instead of an Array for an unparsable address
+      self.from ||= Array(mail.from).join(',').presence
+      self.to ||= Array(mail.to).join(',').presence
       self.body ||= mail.message.body.presence&.decoded.presence ||
                     mail.body.presence&.parts&.first&.decoded
       save!
@@ -164,7 +165,7 @@ module Facteur
 
     def sorted_events
       (events || [])
-        .map { |e| e.merge('datetime' => Time.zone.at(e['timestamp'].to_f).to_datetime) }
+        .map { |e| e.merge('datetime' => Time.zone.at(e['timestamp'].to_f.to_r.round(6)).to_datetime) }
         .each_with_index
         .sort_by { |e, i| [e['timestamp'].to_f, i] }
         .map(&:first)

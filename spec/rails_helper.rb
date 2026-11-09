@@ -30,5 +30,6 @@ RSpec.configure do |config|
     ActionMailer::Base.deliveries.clear
     Facteur.provider = :sendgrid
     Facteur.scaleway_webhook_token = nil
+    Facteur::Scaleway::SnsCertificateCache.clear
   end
 end
