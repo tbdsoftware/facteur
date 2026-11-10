@@ -39,7 +39,7 @@ RSpec.describe 'Scaleway TEM end to end' do
 
   def snapshot(mailing)
     mailing.attributes.slice('status', 'processed_at', 'delivered_at', 'error_at', 'error_msg', 'provider_message_ids')
-           .merge('event_ids' => mailing.events.map { |e| e['provider_event_id'] })
+      .merge('event_ids' => mailing.events.map { |event| event['provider_event_id'] })
   end
 
   scenarios = {
@@ -59,7 +59,7 @@ RSpec.describe 'Scaleway TEM end to end' do
       check: lambda do |mailing|
         expect(mailing).to be_current_status_error
         expect(mailing.error_msg).to eq("email_mailbox_not_found: #{mailbox_not_found_reason}")
-        expect(mailing.events.map { |e| e['type'] })
+        expect(mailing.events.map { |event| event['type'] })
           .to eq(%w[email_queued email_dropped email_mailbox_not_found])
       end
     },

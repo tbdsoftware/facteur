@@ -25,8 +25,8 @@ The generator copies the migrations your app does not have yet (`create_facteur_
 `add_tracking_to_facteur_mailings`), so an app already using Facteur can run it again to get only the new
 ones. PostgreSQL is required (`jsonb` columns).
 
-Mailings are created with `Facteur::Mailing.create!` (or `create_if_unsent!` to never send the same mail twice)
-and delivered by `Facteur::MailingDeliveryJob`. Include `Facteur::DeviseFacteurable` in a Devise model to send
+Mailings are created with `Facteur::Mailing.create!` (or `Facteur::Mailing::CreateIfUnsentService.new(attributes).call`
+to never send the same mail twice) and delivered by `Facteur::MailingDeliveryJob`. Include `Facteur::DeviseFacteurable` in a Devise model to send
 Devise notifications through Facteur.
 
 ## Upgrading (e.g. Hamelin)
@@ -40,6 +40,27 @@ Rails 7.1, 7.2 and 8.0.
    metadata-only on PostgreSQL 11+, no backfill, no long lock).
 2. Apps sending through Scaleway must set `config.provider = :scaleway`: the default `:sendgrid` now adds
    `X-SMTPAPI` in every environment, production included.
+
+## Upgrading to 0.3.0
+
+The engine code moved to `app/` and `Facteur::Mailing` now only holds data. The table, the `status` enum and its
+scopes, the `sent`/`processed`/… scopes and predicates, the job class names, the webhooks and
+`Facteur::DeviseFacteurable` are unchanged.
+
+`Facteur::Mailing`, `Facteur::DeviseFacteurable`, the jobs and the services are now autoloaded from the engine's
+`app/` folders (only `Facteur.configure` and `Facteur::Engine` load with the gem): host code must not reference
+them while the app boots, e.g. in an initializer wrap such code in `Rails.application.config.to_prepare do … end`.
+
+These public methods were removed:
+
+| Removed | Use instead |
+| --- | --- |
+| `Facteur::Mailing.create_if_unsent!(attributes)`, `#sent_mailings` | `Facteur::Mailing::CreateIfUnsentService.new(attributes).call` |
+| `#deliver`, `#inner_deliver`, `#skip!`, `#compute_mail_headers`, `#compute_mail_fields`, `#should_skip?`, `#will_be_blocked?`, `#mailer` | `Facteur::MailingDeliveryService.new(mailing).call` (or `Facteur::MailingDeliveryJob`) |
+| `#compute_mail`, `#prospect_demo_user?` | nothing: they were unused |
+| `.pending`, `.not_pending`, `#pending?` | `.current_status_pending` / `#current_status_pending?` (there is no `pending_at` column: they never worked) |
+| `#status_class`, `Facteur::ApplicationRecordable` (`#human_enum_name`, `.collection_from_enum_with_ivalues`, …) | your own helpers; the ActiveAdmin page keeps the same labels, colours and filter |
+| `Facteur::Scaleway::SnsCertificateCache` | nothing: the certificate cache is internal to `Facteur::Scaleway::VerifySnsSignatureService` |
 
 ## Configuration
 

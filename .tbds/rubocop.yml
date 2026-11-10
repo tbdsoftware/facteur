@@ -1,0 +1,95 @@
+inherit_gem: { rubocop-rails-omakase: rubocop.yml }
+
+require:
+  - ./cops/enum_use_prefix_or_suffix.rb
+  - ./cops/enum_value_as_string.rb
+  - ./cops/job_service_naming.rb
+  - ./cops/mailer_methods_arguments.rb
+  - ./cops/migration_datetime_column_naming.rb
+  - ./cops/migration_rounded_timestamp.rb
+  - ./cops/migration_style_disabled_transaction_multi_line.rb
+  - ./cops/no_jsonb_path_operator.rb
+  - ./cops/no_rescue_standard_error.rb
+  - ./cops/no_strftime.rb
+  - ./cops/no_to_time.rb
+  - ./cops/render_own_view.rb
+  - ./cops/scoped_find.rb
+  - ./cops/service_single_public_method.rb
+  - ./cops/update_all_touches_updated_at.rb
+
+# Use `[a, [b, c]]` not `[ a, [ b, c ] ]`
+Layout/SpaceInsideArrayLiteralBrackets:
+  Enabled: true
+  EnforcedStyle: no_space
+Layout/MultilineMethodCallIndentation:
+  Enabled: true
+  EnforcedStyle: indented
+  IndentationWidth: 2
+
+Tbds/ServiceSinglePublicMethod:
+  Enabled: true
+  Include:
+    - "app/services/**/*.rb"
+
+Tbds/ScopedFind:
+  Enabled: true
+  Include:
+    - "app/controllers/api/management/**/*.rb"
+  AllowedConstants: []
+
+Tbds/RenderOwnView:
+  Enabled: true
+  Include:
+    - "app/controllers/**/*.rb"
+
+Tbds/JobServiceNaming:
+  Enabled: true
+  Include:
+    - "app/jobs/**/*.rb"
+
+Tbds/EnumValueAsString:
+  Enabled: true
+  Include:
+    - "app/models/**/*.rb"
+
+Tbds/EnumUsePrefixOrSuffix:
+  Enabled: true
+  Include:
+    - "app/models/**/*.rb"
+
+Tbds/MailerMethodsArguments:
+  Enabled: true
+
+Tbds/NoStrftime:
+  Enabled: true
+
+Tbds/NoToTime:
+  Enabled: true
+
+Tbds/NoRescueStandardError:
+  Enabled: true
+
+Tbds/NoJsonbPathOperator:
+  Enabled: true
+
+Tbds/UpdateAllTouchesUpdatedAt:
+  Enabled: true
+  Exclude:
+    - "db/migrate/**/*.rb"
+    - "spec/**/*.rb"
+    - "test/**/*.rb"
+
+Tbds/MigrationDatetimeColumnNaming:
+  Enabled: true
+  Include:
+    - "db/migrate/**/*.rb"
+
+Tbds/MigrationRoundedTimestamp:
+  Enabled: true
+  Include:
+    - "db/migrate/**/*.rb"
+
+Tbds/MigrationStyleDisabledTransactionMultiLine:
+  Enabled: true
+  Include:
+    - "db/migrate/**/*.rb"

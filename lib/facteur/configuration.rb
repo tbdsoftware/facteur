@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'active_support/core_ext/module/attribute_accessors'
+require "active_support/core_ext/module/attribute_accessors"
 
 module Facteur
   mattr_accessor :provider, default: :sendgrid

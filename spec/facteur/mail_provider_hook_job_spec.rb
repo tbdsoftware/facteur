@@ -63,7 +63,7 @@ RSpec.describe Facteur::MailProviderHookJob do
 
       mailing.reload
       expect(mailing).to be_current_status_processed
-      expect(mailing.events.map { |e| e['event'] }).to eq(%w[processed deferred])
+      expect(mailing.events.map { |event| event['event'] }).to eq(%w[processed deferred])
       expect(mailing.error_at).to be_nil
     end
 
@@ -90,7 +90,7 @@ RSpec.describe Facteur::MailProviderHookJob do
       perform('scaleway', with_type(payload, 'email_blocklisted').except('email_error')
                                                                 .merge('blocklist_reason' => ' 550 mailbox not found ',
                                                                        'email_headers' => payload['email_headers']
-                                                                         .map { |h| h.merge('value' => other.id.to_s) }))
+                                                                         .map { |header| header.merge('value' => other.id.to_s) }))
       expect(other.reload.error_msg).to eq('email_blocklisted: 550 mailbox not found')
     end
 
@@ -100,8 +100,8 @@ RSpec.describe Facteur::MailProviderHookJob do
       expect(mailing).to be_current_status_processed
 
       payload = event_payload('05_notification_email_mailbox_not_found.json', mailing.id)
-      payload['email_headers'] = payload['email_headers'].map do |h|
-        h['key'].casecmp?('X-Facteur-Mailing-Id') ? h.merge('key' => 'X-FACTEUR-MAILING-ID') : h
+      payload['email_headers'] = payload['email_headers'].map do |header|
+        header['key'].casecmp?('X-Facteur-Mailing-Id') ? header.merge('key' => 'X-FACTEUR-MAILING-ID') : header
       end
       perform('scaleway', payload)
 
@@ -113,13 +113,13 @@ RSpec.describe Facteur::MailProviderHookJob do
 
       expect(mailing).to be_current_status_delivered
       expect(mailing.processed_at).to be < mailing.delivered_at
-      expect(mailing.sorted_events.map { |e| e['type'] }).to eq(%w[email_queued email_delivered])
+      expect(mailing.sorted_events.map { |event| event['type'] }).to eq(%w[email_queued email_delivered])
     end
 
     it 'orders events within the same second by their fraction' do
       replay('03_notification_email_delivered.json', '02_notification_email_queued.json')
 
-      timestamps = mailing.sorted_events.map { |e| e['timestamp'] }
+      timestamps = mailing.sorted_events.map { |event| event['timestamp'] }
       expect(timestamps.map(&:floor).uniq.size).to eq(1)
       expect(timestamps).to eq(timestamps.sort)
     end
@@ -184,7 +184,7 @@ RSpec.describe Facteur::MailProviderHookJob do
 
       it 'ignores an event without the header' do
         payload = event_payload('02_notification_email_queued.json')
-        payload['email_headers'] = payload['email_headers'].reject { |h| h['key'].casecmp?('X-Facteur-Mailing-Id') }
+        payload['email_headers'] = payload['email_headers'].reject { |header| header['key'].casecmp?('X-Facteur-Mailing-Id') }
 
         expect { perform('scaleway', payload) }.not_to raise_error
       end
@@ -283,7 +283,7 @@ RSpec.describe Facteur::MailProviderHookJob do
       mailing.reload
       expect(mailing).to be_current_status_delivered
       expect(mailing.processed_at).to eq(Time.zone.at(1_794_193_288))
-      expect(mailing.sorted_events.map { |e| e['event'] }).to eq(%w[processed delivered])
+      expect(mailing.sorted_events.map { |event| event['event'] }).to eq(%w[processed delivered])
       expect(mailing.events).to eq(legacy)
     end
   end
