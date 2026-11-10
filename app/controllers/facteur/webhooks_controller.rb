@@ -19,7 +19,7 @@ module Facteur
       return head(:bad_request) if envelope.nil?
       return head(:forbidden) if !Scaleway::VerifySnsSignatureService.new(envelope).call
 
-      handle_sns_envelope(envelope)
+      Scaleway::HandleSnsEnvelopeService.new(envelope).call
       head :ok
     end
 
@@ -36,24 +36,6 @@ module Facteur
       envelope if envelope.is_a?(Hash)
     rescue JSON::ParserError
       nil
-    end
-
-    def handle_sns_envelope(envelope)
-      Rails.logger.info("[Facteur] Scaleway SNS #{envelope['Type']} #{envelope['MessageId']} signature verified")
-      case envelope['Type']
-      when 'SubscriptionConfirmation'
-        Scaleway::ConfirmSubscriptionService.new(envelope).call
-      when 'Notification'
-        enqueue_sns_notification(envelope)
-      else
-        Rails.logger.info("[Facteur] Scaleway SNS #{envelope['Type'].inspect} message #{envelope['MessageId']} ignored")
-      end
-    end
-
-    def enqueue_sns_notification(envelope)
-      MailProviderHookJob.perform_async('scaleway', JSON.parse(envelope['Message'].to_s))
-    rescue JSON::ParserError
-      Rails.logger.warn("[Facteur] Scaleway SNS notification #{envelope['MessageId']} has no JSON Message, ignored")
     end
   end
 end
