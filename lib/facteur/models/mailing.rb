@@ -22,7 +22,7 @@ module Facteur
     before_save :compute_status
     after_commit :schedule_delivery, on: :create
 
-    enum status: {
+    enum :status, {
       current_status_pending: 0,
       current_status_sent: 1,
       current_status_processed: 2,

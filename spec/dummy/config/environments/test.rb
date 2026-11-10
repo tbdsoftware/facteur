@@ -7,5 +7,5 @@ Rails.application.configure do
   config.action_dispatch.show_exceptions = :rescuable
   config.action_mailer.delivery_method = :test
   config.action_mailer.default_url_options = { host: 'localhost' }
-  config.active_support.deprecation = :stderr
+  config.active_support.deprecation = :raise
 end
