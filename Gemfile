@@ -13,5 +13,6 @@ group :development, :test do
   gem 'pg'
   gem 'puma'
   gem 'rspec-rails'
+  gem 'rubocop-rails-omakase', require: false
   gem 'webmock'
 end
