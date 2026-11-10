@@ -118,6 +118,7 @@ if defined?(ActiveAdmin)
     end
 
     member_action :html_body do
+      response.headers["Content-Security-Policy"] = "sandbox"
       render html: resource.body.to_s.html_safe
     end
   end

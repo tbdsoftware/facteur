@@ -195,7 +195,9 @@ An event already recorded (same provider event id) is ignored, so SNS redeliveri
 ## Stored mails
 
 Each mailing stores its subject, sender, recipients and body (`body`), shown on the ActiveAdmin page in a
-sandboxed iframe (the body is never evaluated, its scripts never run).
+sandboxed iframe. The body is never evaluated as a template, and its page is served with a
+`Content-Security-Policy: sandbox` header, so its scripts do not run in the admin's origin, even when the page is
+opened directly.
 
 The value of the `reset_password_token`, `confirmation_token`, `unlock_token` and `invitation_token` URL
 parameters is replaced with `[FILTERED]` before the body is stored, whatever the mailer (e.g. a welcome mail with
