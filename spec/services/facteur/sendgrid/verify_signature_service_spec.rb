@@ -44,6 +44,14 @@ RSpec.describe Facteur::Sendgrid::VerifySignatureService do
     expect(verify(signature: 'bm90IGEgc2lnbmF0dXJl')).to be(false)
   end
 
+  it 'rejects every payload and logs an error when no public key is configured' do
+    allow(Rails.logger).to receive(:error)
+
+    expect(verify(public_key: nil)).to be(false)
+    expect(verify(public_key: '')).to be(false)
+    expect(Rails.logger).to have_received(:error).with(/Facteur.sendgrid_webhook_public_key is not configured/).twice
+  end
+
   it 'rejects a malformed public key' do
     expect(verify(public_key: 'bm90IGEga2V5')).to be(false)
     expect(verify(public_key: Base64.strict_encode64(OpenSSL::PKey::RSA.new(2048).public_to_der))).to be(false)

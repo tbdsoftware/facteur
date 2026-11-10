@@ -27,7 +27,7 @@ module Facteur
 
       envelope = parse_sns_envelope
       return head(:bad_request) if envelope.nil?
-      return head(:forbidden) if !trusted_scaleway_topic?(envelope)
+      return head(:forbidden) if !Scaleway::VerifyTopicService.new(envelope).call
       return head(:forbidden) if !Scaleway::VerifySnsSignatureService.new(envelope).call
 
       Scaleway::HandleSnsEnvelopeService.new(envelope).call
@@ -41,13 +41,7 @@ module Facteur
     end
 
     def valid_sendgrid_signature?
-      public_key = Facteur.sendgrid_webhook_public_key
-      if public_key.blank?
-        Rails.logger.error("[Facteur] SendGrid webhook refused: Facteur.sendgrid_webhook_public_key is not configured")
-        return false
-      end
-
-      Sendgrid::VerifySignatureService.new(public_key, request.headers[SENDGRID_SIGNATURE_HEADER],
+      Sendgrid::VerifySignatureService.new(Facteur.sendgrid_webhook_public_key, request.headers[SENDGRID_SIGNATURE_HEADER],
                                            request.headers[SENDGRID_TIMESTAMP_HEADER], request.raw_post).call
     end
 
@@ -62,16 +56,6 @@ module Facteur
       expected = Facteur.scaleway_webhook_token.to_s
       expected.present? &&
         ActiveSupport::SecurityUtils.secure_compare(expected, request.query_parameters["facteur_token"].to_s)
-    end
-
-    def trusted_scaleway_topic?(envelope)
-      topic_arns = Array(Facteur.scaleway_topic_arns)
-      return true if topic_arns.include?(envelope["TopicArn"])
-
-      reason = topic_arns.empty? ? "is empty" : "does not include #{envelope['TopicArn'].inspect}"
-      Rails.logger.warn("[Facteur] Scaleway SNS #{envelope['Type']} #{envelope['MessageId']} refused: " \
-                        "Facteur.scaleway_topic_arns #{reason}")
-      false
     end
 
     def parse_sns_envelope

@@ -14,6 +14,10 @@ module Facteur
       end
 
       def call
+        if @public_key.blank?
+          Rails.logger.error("[Facteur] SendGrid webhook refused: Facteur.sendgrid_webhook_public_key is not configured")
+          return false
+        end
         return reject("missing signature or timestamp header") if @signature.blank? || @timestamp.blank?
 
         key = OpenSSL::PKey::EC.new(Base64.decode64(@public_key.to_s))
