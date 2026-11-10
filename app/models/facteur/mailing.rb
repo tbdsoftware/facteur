@@ -30,7 +30,7 @@ module Facteur
     }
 
     # Define methods for all our possible date stuff value
-    %i[pending sent processed delivered opened clicked skipped error].each do |method|
+    %i[sent processed delivered opened clicked skipped error].each do |method|
       scope method, -> { where.not("#{method}_at" => nil) }
       scope "not_#{method}".to_sym, -> { where("#{method}_at" => nil) }
 
