@@ -2,7 +2,7 @@
 
 Gem::Specification.new do |s|
   s.name          = 'facteur'
-  s.version       = '0.3.0'
+  s.version       = '0.4.0'
   s.summary       = 'Log and get analytics for emails you send'
   s.authors       = ['Philippe Durix']
   s.email         = 'philippe.durix@me.com'
