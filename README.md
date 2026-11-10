@@ -54,11 +54,16 @@ Rails 7.1, 7.2 and 8.0.
 3. **SendGrid apps**: enable the Signed Event Webhook in SendGrid (Settings > Mail Settings > Event Webhook >
    Signature verification) and set `config.sendgrid_webhook_public_key` to the public key it shows. Without it,
    `POST /facteur/sendgrid` answers 403 and every event is lost.
-4. **Scaleway apps**: set `config.scaleway_topic_arns` to the ARN of your topic (every message is refused with a
-   403 while it is empty). The token moves from the path to the query string: subscribe
-   `https://<your host>/facteur/scaleway?facteur_token=<token>` to the topic (see [Scaleway setup](#scaleway-setup)),
-   check it is confirmed, then delete the subscription to the old `https://<your host>/facteur/scaleway/<token>`
-   URL, which now answers 404.
+4. **Scaleway apps**: the token moves from the path to the query string.
+   1. Set `config.scaleway_topic_arns` to the ARN of your topic (every message is refused with a 403 while it is
+      empty).
+   2. Deploy.
+   3. Immediately subscribe `https://<your host>/facteur/scaleway?facteur_token=<token>` to the topic (see
+      [Scaleway setup](#scaleway-setup)) and check the subscription is confirmed.
+   4. Delete the subscription to the old `https://<your host>/facteur/scaleway/<token>` URL.
+
+   Between the deploy and the confirmation, the old URL answers 404: the events of that window only reach Facteur
+   if SNS retries them once the new subscription is confirmed.
 
 ## Upgrading to 0.3.0
 
@@ -127,7 +132,9 @@ end
 | Scaleway TEM | `POST /facteur/scaleway?facteur_token=<scaleway_webhook_token>` | `:scaleway` is in `webhooks` (or is the `provider` when `webhooks` is not set) |
 
 The webhooks controller inherits `ActionController::API`, not your `ApplicationController`, so your
-authentication filters do not apply to it. Both endpoints answer 413 to a body over 1 MB.
+authentication filters do not apply to it. Both endpoints answer 413 to a body over 1 MB. SendGrid posts
+`application/json`, which Rails parses before the action runs, so the limit that really protects the app belongs to
+your ingress or proxy (ingress-nginx `proxy-body-size`, 1m by default).
 
 The SendGrid endpoint:
 
@@ -205,6 +212,9 @@ a password reset link). For the `reset_password_instructions`, `confirmation_ins
 and `invitation_instructions` mailings, the token passed to the mailer (first element of `mailer_params`) is
 replaced with `[FILTERED]` once the mailing is sent, skipped or refused by SMTP: until then a Sidekiq retry needs
 it to build the mail again.
+
+Known limit: a token URL-encoded inside another parameter (e.g.
+`redirect=https%3A%2F%2Fexample.com%2Fedit%3Freset_password_token%3D...`) is not filtered.
 
 Set `config.store_body = false` to store no body at all.
 
