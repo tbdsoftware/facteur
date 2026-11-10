@@ -17,13 +17,10 @@ module Facteur
       private
 
       def sent_mailings(mailing)
-        mailings =
-          ::Facteur::Mailing
-          .where(resource: mailing.resource,
-                 mailer_klass: mailing.mailer_klass,
-                 mailer_method: mailing.mailer_method)
-          .where('mailer_params @> ?', Oj.dump(mailing.mailer_params))
-          .order('created_at ASC')
+        mailings = ::Facteur::Mailing
+          .where(resource: mailing.resource, mailer_klass: mailing.mailer_klass, mailer_method: mailing.mailer_method)
+          .where("mailer_params @> ?", Oj.dump(mailing.mailer_params))
+          .order("created_at ASC")
 
         if mailing.persisted?
           mailings.where.not(id: mailing.id)

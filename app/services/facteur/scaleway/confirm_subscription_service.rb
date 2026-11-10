@@ -1,10 +1,9 @@
 # frozen_string_literal: true
 
-require 'net/http'
+require "net/http"
 
 module Facteur
   module Scaleway
-    # Confirms a Scaleway Topics and Events (SNS) subscription by visiting its SubscribeURL
     class ConfirmSubscriptionService
       SUBSCRIBE_HOST_FORMAT = /\Asns\.mnq\.[a-z0-9-]+\.scaleway\.com\z/
       HTTP_TIMEOUT = 5
@@ -12,11 +11,11 @@ module Facteur
         Timeout::Error, SocketError, SystemCallError, IOError, EOFError, Net::HTTPBadResponse, Net::ProtocolError,
         OpenSSL::SSL::SSLError
       ].freeze
-      MANUAL_HINT = 'confirm it manually in the Scaleway console (Topics and Events > Confirm subscription)'
+      MANUAL_HINT = "confirm it manually in the Scaleway console (Topics and Events > Confirm subscription)"
 
       def initialize(envelope)
         @envelope = envelope
-        @url = envelope['SubscribeURL'].to_s
+        @url = envelope["SubscribeURL"].to_s
       end
 
       def call
@@ -38,8 +37,8 @@ module Facteur
                             "#{MANUAL_HINT}")
           false
         end
-      rescue *HTTP_ERRORS => e
-        Rails.logger.warn("[Facteur] Scaleway SNS subscription confirmation failed (#{e.class} #{e.message}): " \
+      rescue *HTTP_ERRORS => error
+        Rails.logger.warn("[Facteur] Scaleway SNS subscription confirmation failed (#{error.class} #{error.message}): " \
                           "#{@url}; #{MANUAL_HINT}")
         false
       end
@@ -48,7 +47,7 @@ module Facteur
 
       def subscribe_uri
         uri = URI.parse(@url)
-        uri if uri.scheme == 'https' && uri.port == 443 && uri.host.to_s.match?(SUBSCRIBE_HOST_FORMAT)
+        uri if uri.scheme == "https" && uri.port == 443 && uri.host.to_s.match?(SUBSCRIBE_HOST_FORMAT)
       rescue URI::InvalidURIError
         nil
       end

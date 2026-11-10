@@ -9,10 +9,10 @@ module Facteur
 
       def call
         Rails.logger.info("[Facteur] Scaleway SNS #{@envelope['Type']} #{@envelope['MessageId']} signature verified")
-        case @envelope['Type']
-        when 'SubscriptionConfirmation'
+        case @envelope["Type"]
+        when "SubscriptionConfirmation"
           ::Facteur::Scaleway::ConfirmSubscriptionService.new(@envelope).call
-        when 'Notification'
+        when "Notification"
           enqueue_notification
         else
           Rails.logger.info("[Facteur] Scaleway SNS #{@envelope['Type'].inspect} message #{@envelope['MessageId']} ignored")
@@ -22,7 +22,7 @@ module Facteur
       private
 
       def enqueue_notification
-        ::Facteur::MailProviderHookJob.perform_async('scaleway', JSON.parse(@envelope['Message'].to_s))
+        ::Facteur::MailProviderHookJob.perform_async("scaleway", JSON.parse(@envelope["Message"].to_s))
       rescue JSON::ParserError
         Rails.logger.warn("[Facteur] Scaleway SNS notification #{@envelope['MessageId']} has no JSON Message, ignored")
       end

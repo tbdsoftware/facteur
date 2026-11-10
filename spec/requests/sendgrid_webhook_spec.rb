@@ -35,7 +35,7 @@ RSpec.describe 'POST /facteur/sendgrid' do
     expect(mailing.opened_at).to eq(Time.zone.at(1_794_193_300))
     expect(mailing.error_msg).to eq('bounce: 500 unknown recipient')
     expect(mailing).to be_current_status_error
-    expect(mailing.events.map { |e| e['sg_event_id'] }).to eq(%w[sg-processed-1 sg-delivered-1 sg-open-1 sg-bounce-1])
+    expect(mailing.events.map { |event| event['sg_event_id'] }).to eq(%w[sg-processed-1 sg-delivered-1 sg-open-1 sg-bounce-1])
   end
 
   it 'accepts an empty body' do

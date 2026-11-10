@@ -11,7 +11,7 @@ require 'action_mailer/railtie'
 require 'action_view/railtie'
 
 # Bundler.require loads Facteur::Mailing before `config.active_support.deprecation = :raise` applies
-[ActiveSupport.deprecator, ActiveRecord.deprecator].each { |d| d.behavior = :raise } if Rails.env.test?
+[ActiveSupport.deprecator, ActiveRecord.deprecator].each { |deprecator| deprecator.behavior = :raise } if Rails.env.test?
 
 Bundler.require(*Rails.groups)
 require 'facteur'

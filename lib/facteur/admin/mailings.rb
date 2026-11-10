@@ -33,7 +33,7 @@ if defined?(ActiveAdmin)
   end
 
   ActiveAdmin.register ::Facteur::Mailing do
-    menu parent: 'Admin'
+    menu parent: "Admin"
     actions :all, except: %i[new create edit update]
 
     filter :status, as: :select, collection: status_filter_collection
@@ -62,7 +62,7 @@ if defined?(ActiveAdmin)
     show do
       columns do
         column do
-          attributes_table title: 'Attributs' do
+          attributes_table title: "Attributs" do
             row :status do |mailing|
               status_tag status_label.call(mailing.status), class: status_color.call(mailing.status)
             end
@@ -73,7 +73,7 @@ if defined?(ActiveAdmin)
             row :provider_message_ids
           end
 
-          attributes_table title: 'Dates' do
+          attributes_table title: "Dates" do
             row :sent_at
             row :processed_at
             row :delivered_at
@@ -84,29 +84,29 @@ if defined?(ActiveAdmin)
             row :updated_at
           end
 
-          attributes_table title: 'Error' do
+          attributes_table title: "Error" do
             row :error_msg
             row :error_at
           end
 
-          attributes_table title: 'Skip' do
+          attributes_table title: "Skip" do
             row :skip_reason
             row :skipped_at
           end
         end
 
         column do
-          panel 'Contenu' do
+          panel "Contenu" do
             attributes_table_for resource do
               row :to
               row :from
               row :subject
             end
-            iframe style: 'width: 100%; height: 400px; border: none; margin-top: 14px;',
+            iframe style: "width: 100%; height: 400px; border: none; margin-top: 14px;",
                    src: html_body_admin_facteur_mailing_path(resource)
           end
 
-          panel 'Events' do
+          panel "Events" do
             pre do
               resource.events.to_yaml
             end
@@ -115,10 +115,8 @@ if defined?(ActiveAdmin)
       end
     end
 
-    # rubocop:disable Rails/RenderInline
     member_action :html_body do
       render inline: resource.body
     end
-    # rubocop:enable Rails/RenderInline
   end
 end

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require 'net/smtp'
+require "net/smtp"
 
 module Facteur
   class MailingDeliveryService
@@ -24,20 +24,21 @@ module Facteur
 
     def deliver
       return if @mailing.sent_at || @mailing.skipped_at || @mailing.error_at
-      return skip!('expired') if @mailing.created_at < 1.day.ago
+      return skip!("expired") if @mailing.created_at < 1.day.ago
 
-      mail = if devise_mailer?
-               mailer.send(@mailing.mailer_method, @mailing.resource, *@mailing.mailer_params)
-             elsif @mailing.mailer_params.is_a?(Hash)
-               mailer.with(@mailing.mailer_params.with_indifferent_access).send(@mailing.mailer_method)
-             else
-               mailer.send(@mailing.mailer_method, *@mailing.mailer_params)
-             end
+      mail =
+        if devise_mailer?
+          mailer.send(@mailing.mailer_method, @mailing.resource, *@mailing.mailer_params)
+        elsif @mailing.mailer_params.is_a?(Hash)
+          mailer.with(@mailing.mailer_params.with_indifferent_access).send(@mailing.mailer_method)
+        else
+          mailer.send(@mailing.mailer_method, *@mailing.mailer_params)
+        end
       compute_mail_headers(mail)
       compute_mail_fields(mail)
 
-      return skip!('skipped') if should_skip?
-      return skip!('blocked_recipient') if will_be_blocked?
+      return skip!("skipped") if should_skip?
+      return skip!("blocked_recipient") if will_be_blocked?
 
       begin
         mail.deliver_now
@@ -57,26 +58,26 @@ module Facteur
 
     def reject!(error)
       @mailing.events = (@mailing.events || []) + [{
-        'event' => 'dropped',
-        'type' => 'smtp_rejected',
-        'reason' => error.message.strip,
-        'provider' => 'smtp',
-        'timestamp' => Time.current.to_f,
-        'provider_event_id' => nil
+        "event" => "dropped",
+        "type" => "smtp_rejected",
+        "reason" => error.message.strip,
+        "provider" => "smtp",
+        "timestamp" => Time.current.to_f,
+        "provider_event_id" => nil
       }]
       @mailing.save!
     end
 
     def compute_mail_headers(mail)
-      mail.headers('X-Facteur-Mailing-Id' => @mailing.id.to_s)
-      mail.headers('X-SMTPAPI' => Oj.dump('unique_args' => { 'mn_id' => @mailing.id })) if Facteur.provider.to_s == 'sendgrid'
+      mail.headers("X-Facteur-Mailing-Id" => @mailing.id.to_s)
+      mail.headers("X-SMTPAPI" => Oj.dump("unique_args" => { "mn_id" => @mailing.id })) if Facteur.provider.to_s == "sendgrid"
     end
 
     def compute_mail_fields(mail)
       @mailing.subject ||= mail.subject
       # Mail returns a String instead of an Array for an unparsable address
-      @mailing.from ||= Array(mail.from).join(',').presence
-      @mailing.to ||= Array(mail.to).join(',').presence
+      @mailing.from ||= Array(mail.from).join(",").presence
+      @mailing.to ||= Array(mail.to).join(",").presence
       @mailing.body ||= mail.message.body.presence&.decoded.presence ||
                         mail.body.presence&.parts&.first&.decoded
       @mailing.save!

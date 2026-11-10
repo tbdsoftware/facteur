@@ -1,17 +1,16 @@
 # frozen_string_literal: true
 
 module Facteur
-  # Handles webhooks. Not inheriting the host's ApplicationController, whose authentication would block providers.
+  # Not inheriting the host's ApplicationController, whose authentication would block providers
   class WebhooksController < ActionController::API
     def sendgrid
       body = request.raw_post
       json_params = body.presence && ActiveSupport::JSON.decode(body)
-      MailProviderHookJob.perform_async('sendgrid', json_params)
+      MailProviderHookJob.perform_async("sendgrid", json_params)
 
       head :ok
     end
 
-    # SNS posts its JSON envelope as text/plain, so the raw body is parsed instead of params
     def scaleway
       return head(:not_found) if !valid_scaleway_token?
 
@@ -32,6 +31,7 @@ module Facteur
     end
 
     def parse_sns_envelope
+      # SNS posts its JSON envelope as text/plain, so the raw body is parsed instead of params
       envelope = JSON.parse(request.raw_post)
       envelope if envelope.is_a?(Hash)
     rescue JSON::ParserError

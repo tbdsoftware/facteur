@@ -1,11 +1,10 @@
 # frozen_string_literal: true
 
 module Facteur
-  # Records the events received from a mail provider webhook on their mailing
   class MailProviderHookService
     NORMALIZERS = {
-      'sendgrid' => ::Facteur::Sendgrid::NormalizeEventService,
-      'scaleway' => ::Facteur::Scaleway::NormalizeEventService
+      "sendgrid" => ::Facteur::Sendgrid::NormalizeEventService,
+      "scaleway" => ::Facteur::Scaleway::NormalizeEventService
     }.freeze
     # Rails would cast "4-abc" to 4 and attach the event to the wrong mailing
     MAILING_ID_FORMAT = /\A\d+\z/
@@ -25,7 +24,7 @@ module Facteur
     private
 
     def handle_event(normalizer, raw)
-      return log(:info, 'blank event ignored') if !raw.is_a?(Hash) || raw.blank?
+      return log(:info, "blank event ignored") if !raw.is_a?(Hash) || raw.blank?
 
       normalized = normalizer.new(raw).call
       return log(:info, "untracked event #{(raw['type'] || raw['event']).inspect} ignored") if normalized.nil?
@@ -52,7 +51,7 @@ module Facteur
           log(:info, "event #{event['provider_event_id']} already recorded on #{mailing}, ignored")
         else
           mailing.events = (mailing.events || []) + [event]
-          message_id = event['provider_message_id']
+          message_id = event["provider_message_id"]
           mailing.provider_message_ids = (mailing.provider_message_ids + [message_id]).uniq if message_id.present?
           mailing.save!
         end
@@ -60,9 +59,9 @@ module Facteur
     end
 
     def duplicate?(mailing, event)
-      event_id = event['provider_event_id']
+      event_id = event["provider_event_id"]
       event_id.present? &&
-        (mailing.events || []).any? { |e| (e['provider_event_id'] || e['sg_event_id']) == event_id }
+        (mailing.events || []).any? { |recorded| (recorded["provider_event_id"] || recorded["sg_event_id"]) == event_id }
     end
 
     def log(level, message)
