@@ -82,6 +82,15 @@ RSpec.describe Facteur::Scaleway::VerifySnsSignatureService do
       expect(verify(sign_envelope(notification))).to be(false)
     end
 
+    it 'downloads the certificate again after a failed download' do
+      stub_request(:get, SnsHelpers::TEST_CERT_URL)
+        .to_return({ status: 500 }, { status: 200, body: SnsHelpers::TEST_CERT.to_pem })
+
+      expect(verify(sign_envelope(notification))).to be(false)
+      expect(verify(sign_envelope(notification))).to be(true)
+      expect(a_request(:get, SnsHelpers::TEST_CERT_URL)).to have_been_made.twice
+    end
+
     it 'rejects when the certificate download times out' do
       stub_request(:get, SnsHelpers::TEST_CERT_URL).to_timeout
 
