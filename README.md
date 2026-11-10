@@ -45,7 +45,13 @@ Rails 7.1, 7.2 and 8.0.
 
 The engine code moved to `app/` and `Facteur::Mailing` now only holds data. The table, the `status` enum and its
 scopes, the `sent`/`processed`/… scopes and predicates, the job class names, the webhooks and
-`Facteur::DeviseFacteurable` are unchanged. These public methods were removed:
+`Facteur::DeviseFacteurable` are unchanged.
+
+`Facteur::Mailing`, `Facteur::DeviseFacteurable`, the jobs and the services are now autoloaded from the engine's
+`app/` folders (only `Facteur.configure` and `Facteur::Engine` load with the gem): host code must not reference
+them while the app boots, e.g. in an initializer wrap such code in `Rails.application.config.to_prepare do … end`.
+
+These public methods were removed:
 
 | Removed | Use instead |
 | --- | --- |
