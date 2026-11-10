@@ -1,10 +1,25 @@
 # frozen_string_literal: true
 
-RSpec.describe 'POST /facteur/scaleway/:token' do
+RSpec.describe 'POST /facteur/scaleway' do
   let(:token) { 'scaleway-secret-token' }
   let(:hook_jobs) { Facteur::MailProviderHookJob.jobs }
+  let(:foreign_topic_arn) { 'arn:scw:sns:fr-par:project-00000000-0000-0000-0000-000000000000:someone-else' }
 
-  before { Facteur.scaleway_webhook_token = token }
+  before do
+    Facteur.scaleway_webhook_token = token
+    Facteur.scaleway_topic_arns = [SnsHelpers::TOPIC_ARN]
+    travel_to_fixtures_time
+  end
+
+  def capture_log
+    io = StringIO.new
+    logger = ActiveSupport::Logger.new(io)
+    Rails.logger.broadcast_to(logger)
+    yield
+    io.string
+  ensure
+    Rails.logger.stop_broadcasting_to(logger)
+  end
 
   context 'with real Scaleway signed payloads' do
     before { stub_real_certificate }
@@ -41,8 +56,11 @@ RSpec.describe 'POST /facteur/scaleway/:token' do
 
   context 'with a SigningCertURL outside Scaleway' do
     %w[https://evil.example.com/x.pem
-       http://messaging.s3.fr-par.scw.cloud/fr-par/sns/facteur_test_certificate.pem
-       https://messaging.s3.fr-par.scw.cloud:8443/fr-par/sns/facteur_test_certificate.pem].each do |url|
+       http://messaging.s3.fr-par.scw.cloud/fr-par/sns/sns_certificate_0123456789abcdef.pem
+       https://messaging.s3.fr-par.scw.cloud:8443/fr-par/sns/sns_certificate_0123456789abcdef.pem
+       https://messaging.s3.xx-new.scw.cloud/xx-new/sns/sns_certificate_0123456789abcdef.pem
+       https://messaging.s3.fr-par.scw.cloud/nl-ams/sns/sns_certificate_0123456789abcdef.pem
+       https://messaging.s3.fr-par.scw.cloud/fr-par/other/sns_certificate_0123456789abcdef.pem].each do |url|
       it "refuses #{url} without any request" do
         envelope = fixture_envelope('signed_raw/email_queued.json').merge('SigningCertURL' => url)
 
@@ -78,11 +96,120 @@ RSpec.describe 'POST /facteur/scaleway/:token' do
     it 'answers 404 when the configured token is blank' do
       Facteur.scaleway_webhook_token = ''
 
-      post '/facteur/scaleway/%20', params: fixture_raw('signed_raw/email_queued.json'),
-                                    headers: { 'Content-Type' => 'text/plain' }
+      post_sns(fixture_raw('signed_raw/email_queued.json'), token: ' ')
 
       expect(response).to have_http_status(:not_found)
       expect(hook_jobs).to be_empty
+    end
+
+    it 'answers 404 without the facteur_token query parameter' do
+      post '/facteur/scaleway', params: fixture_raw('signed_raw/email_queued.json'),
+                                headers: { 'Content-Type' => 'text/plain' }
+
+      expect(response).to have_http_status(:not_found)
+      expect(hook_jobs).to be_empty
+    end
+
+    it 'answers 404 to the former URL with the token in the path' do
+      post "/facteur/scaleway/#{token}", params: fixture_raw('signed_raw/email_queued.json'),
+                                         headers: { 'Content-Type' => 'text/plain' }
+
+      expect(response).to have_http_status(:not_found)
+      expect(hook_jobs).to be_empty
+      expect(a_request(:any, /.*/)).not_to have_been_made
+    end
+  end
+
+  describe 'request log' do
+    before { stub_real_certificate }
+
+    it 'filters the token out of the logged request' do
+      log = capture_log { post_sns(fixture_raw('signed_raw/email_queued.json'), token: token) }
+
+      expect(response).to have_http_status(:ok)
+      expect(log).to include('Started POST "/facteur/scaleway?facteur_token=[FILTERED]"')
+      expect(log).to match(/Parameters: \{"facteur_token" ?=> ?"\[FILTERED\]"\}/)
+      expect(log).not_to include(token)
+    end
+
+    it 'adds facteur_token to the host filter_parameters once' do
+      expect(Rails.application.config.filter_parameters.count { |filter| filter.to_s.include?('facteur_token') }).to eq(1)
+    end
+  end
+
+  describe 'topic allow-list' do
+    before { stub_test_certificate }
+
+    it 'refuses a signed notification from another topic without downloading the certificate' do
+      allow(Rails.logger).to receive(:warn)
+      envelope = sign_envelope(fixture_envelope('02_notification_email_queued.json').merge('TopicArn' => foreign_topic_arn))
+
+      post_sns(envelope, token: token)
+
+      expect(response).to have_http_status(:forbidden)
+      expect(hook_jobs).to be_empty
+      expect(a_request(:any, /.*/)).not_to have_been_made
+      expect(Rails.logger).to have_received(:warn).with(/Facteur.scaleway_topic_arns does not include/)
+    end
+
+    it 'refuses a signed SubscriptionConfirmation from another topic without visiting anything' do
+      envelope = sign_envelope(fixture_envelope('01_subscription_confirmation.json').merge('TopicArn' => foreign_topic_arn))
+
+      post_sns(envelope, token: token)
+
+      expect(response).to have_http_status(:forbidden)
+      expect(a_request(:any, /.*/)).not_to have_been_made
+    end
+
+    it 'refuses every message when no topic is allowed, and says which setting is missing' do
+      Facteur.scaleway_topic_arns = []
+      allow(Rails.logger).to receive(:warn)
+
+      post_sns(sign_envelope(fixture_envelope('02_notification_email_queued.json')), token: token)
+
+      expect(response).to have_http_status(:forbidden)
+      expect(hook_jobs).to be_empty
+      expect(a_request(:any, /.*/)).not_to have_been_made
+      expect(Rails.logger).to have_received(:warn).with(/Facteur.scaleway_topic_arns is empty/)
+    end
+
+    it 'cannot be bypassed by changing the TopicArn of a signed message' do
+      Facteur.scaleway_topic_arns = [SnsHelpers::TOPIC_ARN, foreign_topic_arn]
+      envelope = sign_envelope(fixture_envelope('02_notification_email_queued.json')).merge('TopicArn' => foreign_topic_arn)
+
+      post_sns(envelope, token: token)
+
+      expect(response).to have_http_status(:forbidden)
+      expect(hook_jobs).to be_empty
+    end
+  end
+
+  describe 'size limits' do
+    it 'answers 413 to a body over 1 MB without parsing it' do
+      allow(JSON).to receive(:parse).and_call_original
+
+      post_sns('{"Message":"' + ('a' * Facteur::WebhooksController::MAX_BODY_BYTES) + '"}', token: token)
+
+      expect(response).to have_http_status(413)
+      expect(JSON).not_to have_received(:parse)
+      expect(hook_jobs).to be_empty
+    end
+  end
+
+  describe 'Message' do
+    before { stub_test_certificate }
+
+    ['[{"type":"email_queued"}]', '"email_queued"', 'not json'].each do |message|
+      it "ignores a notification whose Message is #{message}" do
+        allow(Rails.logger).to receive(:warn)
+        envelope = fixture_envelope('02_notification_email_queued.json').merge('Message' => message)
+
+        post_sns(sign_envelope(envelope), token: token)
+
+        expect(response).to have_http_status(:ok)
+        expect(hook_jobs).to be_empty
+        expect(Rails.logger).to have_received(:warn).with(/has no JSON object Message, ignored/)
+      end
     end
   end
 
@@ -100,7 +227,7 @@ RSpec.describe 'POST /facteur/scaleway/:token' do
   end
 
   it 'answers 400 to an invalid JSON body sent as application/json' do
-    post "/facteur/scaleway/#{token}", params: '{oops', headers: { 'Content-Type' => 'application/json' }
+    post "/facteur/scaleway?facteur_token=#{token}", params: '{oops', headers: { 'Content-Type' => 'application/json' }
 
     expect(response).to have_http_status(:bad_request)
     expect(hook_jobs).to be_empty

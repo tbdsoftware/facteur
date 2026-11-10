@@ -10,6 +10,8 @@ RSpec.describe 'Scaleway TEM end to end' do
   before do
     Facteur.provider = :scaleway
     Facteur.scaleway_webhook_token = token
+    Facteur.scaleway_topic_arns = [SnsHelpers::TOPIC_ARN]
+    travel_to_fixtures_time
     stub_test_certificate
   end
 

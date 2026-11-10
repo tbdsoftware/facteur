@@ -22,9 +22,19 @@ module Facteur
       private
 
       def enqueue_notification
-        ::Facteur::MailProviderHookJob.perform_async("scaleway", JSON.parse(@envelope["Message"].to_s))
+        event = parse_message
+        if event.nil?
+          Rails.logger.warn("[Facteur] Scaleway SNS notification #{@envelope['MessageId']} has no JSON object Message, ignored")
+        else
+          ::Facteur::MailProviderHookJob.perform_async("scaleway", event)
+        end
+      end
+
+      def parse_message
+        event = JSON.parse(@envelope["Message"].to_s)
+        event if event.is_a?(Hash)
       rescue JSON::ParserError
-        Rails.logger.warn("[Facteur] Scaleway SNS notification #{@envelope['MessageId']} has no JSON Message, ignored")
+        nil
       end
     end
   end

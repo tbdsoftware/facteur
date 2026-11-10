@@ -22,6 +22,7 @@ RSpec.configure do |config|
   config.infer_spec_type_from_file_location!
   config.filter_rails_from_backtrace!
   config.disable_monkey_patching!
+  config.include ActiveSupport::Testing::TimeHelpers
   config.order = :random
   Kernel.srand config.seed
 
@@ -29,8 +30,12 @@ RSpec.configure do |config|
     Sidekiq::Job.clear_all
     ActionMailer::Base.deliveries.clear
     Facteur.provider = :sendgrid
+    Facteur.sendgrid_webhook_public_key = nil
     Facteur.scaleway_webhook_token = nil
+    Facteur.scaleway_topic_arns = []
     Facteur.store_body = true
     Facteur::Scaleway::VerifySnsSignatureService::CERTIFICATES.clear
   end
+
+  config.after { travel_back }
 end
