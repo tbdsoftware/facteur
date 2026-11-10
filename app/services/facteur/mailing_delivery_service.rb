@@ -47,13 +47,13 @@ module Facteur
       end
 
       @mailing.sent_at ||= Time.current
-      @mailing.save!
+      save_filtered!
     end
 
     def skip!(reason)
       @mailing.skipped_at = Time.current
       @mailing.skip_reason = reason
-      @mailing.save!
+      save_filtered!
     end
 
     def reject!(error)
@@ -65,6 +65,13 @@ module Facteur
         "timestamp" => Time.current.to_f,
         "provider_event_id" => nil
       }]
+      # error_at, which finishes the mailing, is computed from the events when saving
+      @mailing.save!
+      save_filtered!
+    end
+
+    def save_filtered!
+      ::Facteur::Mailing::FilterTokensService.new(@mailing).call
       @mailing.save!
     end
 
@@ -78,9 +85,11 @@ module Facteur
       # Mail returns a String instead of an Array for an unparsable address
       @mailing.from ||= Array(mail.from).join(",").presence
       @mailing.to ||= Array(mail.to).join(",").presence
-      @mailing.body ||= mail.message.body.presence&.decoded.presence ||
-                        mail.body.presence&.parts&.first&.decoded
-      @mailing.save!
+      if Facteur.store_body
+        @mailing.body ||= mail.message.body.presence&.decoded.presence ||
+                          mail.body.presence&.parts&.first&.decoded
+      end
+      save_filtered!
     end
 
     def should_skip?
