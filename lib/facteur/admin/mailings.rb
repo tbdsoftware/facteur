@@ -102,7 +102,9 @@ if defined?(ActiveAdmin)
               row :from
               row :subject
             end
-            iframe style: "width: 100%; height: 400px; border: none; margin-top: 14px;",
+            # Scripts of a stored body must never run in the admin's origin. Arbre 1 drops empty attribute values,
+            # and a blank sandbox token list keeps every restriction
+            iframe sandbox: " ", style: "width: 100%; height: 400px; border: none; margin-top: 14px;",
                    src: html_body_admin_facteur_mailing_path(resource)
           end
 
@@ -116,7 +118,7 @@ if defined?(ActiveAdmin)
     end
 
     member_action :html_body do
-      render inline: resource.body
+      render html: resource.body.to_s.html_safe
     end
   end
 end
