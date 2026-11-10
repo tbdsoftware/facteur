@@ -18,6 +18,7 @@ module Facteur
         Timeout::Error, SocketError, SystemCallError, IOError, EOFError, Net::HTTPBadResponse, Net::ProtocolError,
         OpenSSL::SSL::SSLError, OpenSSL::X509::CertificateError
       ].freeze
+      CERTIFICATES = Concurrent::Map.new
 
       def initialize(envelope)
         @envelope = envelope
@@ -34,7 +35,7 @@ module Facteur
         canonical = canonical_string
         return reject('missing signed fields') if canonical.nil?
 
-        certificate = SnsCertificateCache.fetch(uri.to_s) { download_certificate(uri) }
+        certificate = fetch_certificate(uri)
         return reject("certificate unavailable at #{uri}") if certificate.nil?
 
         signature = Base64.decode64(@envelope['Signature'].to_s)
@@ -61,6 +62,10 @@ module Facteur
 
           canonical << "#{key}\n#{value}\n"
         end
+      end
+
+      def fetch_certificate(uri)
+        CERTIFICATES[uri.to_s] || download_certificate(uri)&.tap { |certificate| CERTIFICATES[uri.to_s] = certificate }
       end
 
       def download_certificate(uri)
