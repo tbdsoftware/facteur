@@ -12,6 +12,10 @@ RSpec.describe 'Webhook routes' do
   before { Facteur.scaleway_webhook_token = 'scaleway-secret-token' }
 
   def draw_routes(provider:, webhooks:)
+    # Journey only drops its cached route matcher when a route is added: drawing both webhooks first keeps a
+    # matcher built by a previous request from serving removed routes when no webhook is drawn
+    Facteur.webhooks = %i[sendgrid scaleway]
+    Rails.application.reload_routes!
     Facteur.provider = provider
     Facteur.webhooks = webhooks
     Rails.application.reload_routes!
