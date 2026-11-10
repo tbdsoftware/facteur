@@ -332,6 +332,7 @@ PLATFORMS
 
 DEPENDENCIES
   facteur!
+  json (< 3)
   oj
   pg
   puma
