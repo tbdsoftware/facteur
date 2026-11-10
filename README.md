@@ -31,6 +31,9 @@ Devise notifications through Facteur.
 
 ## Upgrading (e.g. Hamelin)
 
+Facteur requires Rails >= 7.0 (it uses the positional `enum :status, { ... }` syntax) and is tested on
+Rails 7.1, 7.2 and 8.0.
+
 1. Run `bin/rails g facteur:active_record` and `bin/rails db:migrate` **before** deploying the new code:
    `compute_status` reads `skipped_at` on every save, so `Facteur::Mailing.create!` fails until the
    `add_tracking_to_facteur_mailings` columns exist. The migration only adds 3 columns (the `jsonb` default is
@@ -170,6 +173,14 @@ bundle exec rspec
 
 The databases default to `postgres://localhost/facteur_test` and `postgres://localhost/facteur_development`;
 set `DATABASE_URL` to use another one.
+
+The root `Gemfile` runs on Rails 7.1. The CI also runs the specs on Rails 7.2 and 8.0, each with its own
+Gemfile and lockfile in `gemfiles/`. Deprecations raise in the specs.
+
+```sh
+BUNDLE_GEMFILE=$PWD/gemfiles/rails_8_0.gemfile bundle install
+BUNDLE_GEMFILE=$PWD/gemfiles/rails_8_0.gemfile bundle exec rspec
+```
 
 The dummy app can run as a server to try the webhooks by hand:
 

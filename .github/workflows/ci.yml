@@ -6,7 +6,19 @@ on:
 
 jobs:
   rspec:
+    name: rspec (Rails ${{ matrix.rails }})
     runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rails: '7.1'
+            gemfile: Gemfile
+          - rails: '7.2'
+            gemfile: gemfiles/rails_7_2.gemfile
+          - rails: '8.0'
+            gemfile: gemfiles/rails_8_0.gemfile
 
     services:
       postgres:
@@ -24,6 +36,7 @@ jobs:
     env:
       RAILS_ENV: test
       DATABASE_URL: postgres://postgres@localhost:5432/facteur_test
+      BUNDLE_GEMFILE: ${{ github.workspace }}/${{ matrix.gemfile }}
 
     steps:
       - uses: actions/checkout@v4
