@@ -25,6 +25,13 @@ RSpec.describe Facteur::Scaleway::VerifyTopicService do
       .with(/Facteur.scaleway_topic_arns does not include "#{Regexp.escape(foreign_topic_arn)}"/)
   end
 
+  it 'truncates a long TopicArn in its log' do
+    Facteur.scaleway_topic_arns = [SnsHelpers::TOPIC_ARN]
+
+    expect(verify(envelope.merge('TopicArn' => 'a' * 10_000))).to be(false)
+    expect(Rails.logger).to have_received(:warn).with(satisfy { |message| message.length < 400 && message.include?('a...') })
+  end
+
   it 'refuses a message without TopicArn' do
     Facteur.scaleway_topic_arns = [SnsHelpers::TOPIC_ARN]
 

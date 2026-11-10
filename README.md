@@ -54,13 +54,16 @@ Rails 7.1, 7.2 and 8.0.
 3. **SendGrid apps**: enable the Signed Event Webhook in SendGrid (Settings > Mail Settings > Event Webhook >
    Signature verification) and set `config.sendgrid_webhook_public_key` to the public key it shows. Without it,
    `POST /facteur/sendgrid` answers 403 and every event is lost.
-4. **Scaleway apps**: the token moves from the path to the query string.
-   1. Set `config.scaleway_topic_arns` to the ARN of your topic (every message is refused with a 403 while it is
+4. **Scaleway apps**: the token moves from the path to the query string. The old token is in your request logs
+   (it was in the path, and requests to the old URL keep logging it until its subscription is deleted), so switch
+   to a new one.
+   1. Generate a new token (`SecureRandom.hex(32)`) and store it as `scaleway_webhook_token` in your credentials.
+   2. Set `config.scaleway_topic_arns` to the ARN of your topic (every message is refused with a 403 while it is
       empty).
-   2. Deploy.
-   3. Immediately subscribe `https://<your host>/facteur/scaleway?facteur_token=<token>` to the topic (see
+   3. Deploy.
+   4. Immediately subscribe `https://<your host>/facteur/scaleway?facteur_token=<new token>` to the topic (see
       [Scaleway setup](#scaleway-setup)) and check the subscription is confirmed.
-   4. Delete the subscription to the old `https://<your host>/facteur/scaleway/<token>` URL.
+   5. Delete the subscription to the old `https://<your host>/facteur/scaleway/<old token>` URL.
 
    Between the deploy and the confirmation, the old URL answers 404: the events of that window only reach Facteur
    if SNS retries them once the new subscription is confirmed.
