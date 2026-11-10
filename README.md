@@ -25,8 +25,8 @@ The generator copies the migrations your app does not have yet (`create_facteur_
 `add_tracking_to_facteur_mailings`), so an app already using Facteur can run it again to get only the new
 ones. PostgreSQL is required (`jsonb` columns).
 
-Mailings are created with `Facteur::Mailing.create!` (or `create_if_unsent!` to never send the same mail twice)
-and delivered by `Facteur::MailingDeliveryJob`. Include `Facteur::DeviseFacteurable` in a Devise model to send
+Mailings are created with `Facteur::Mailing.create!` (or `Facteur::Mailing::CreateIfUnsentService.new(attributes).call`
+to never send the same mail twice) and delivered by `Facteur::MailingDeliveryJob`. Include `Facteur::DeviseFacteurable` in a Devise model to send
 Devise notifications through Facteur.
 
 ## Upgrading (e.g. Hamelin)

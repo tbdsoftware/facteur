@@ -1,7 +1,5 @@
 # frozen_string_literal: true
 
-require 'net/smtp'
-
 module Facteur
   # This class represents mail that we have sent. This is used to track which mail we send to whom,
   # and ensure that we do not send an email twice
@@ -43,124 +41,8 @@ module Facteur
       end
     end
 
-    def self.create_if_unsent!(params)
-      mn = new(params)
-      mn.save! if mn.sent_mailings.empty?
-
-      mn.sent_mailings.first || mn
-    end
-
     def to_s
       "Facteur::Mailing ##{id}"
-    end
-
-    def will_be_blocked?
-      return true if to.blank?
-
-      !!to.match(/@example\.com$/)
-    end
-
-    def sent_mailings
-      mns =
-        ::Facteur::Mailing
-        .where(resource: resource,
-               mailer_klass: mailer_klass,
-               mailer_method: mailer_method)
-        .where('mailer_params @> ?', Oj.dump(mailer_params))
-        .order('created_at ASC')
-
-      if persisted?
-        mns.where.not(id: id)
-      else
-        mns
-      end
-    end
-
-    def mailer
-      Object.const_get(mailer_klass)
-    end
-
-    def compute_mail
-      if devise_mailer?
-        mailer.send(mailer_method, resource, *mailer_params)
-      else
-        mailer.send(mailer_method, *mailer_params)
-      end
-    end
-
-    # Method to override in the app world in order to skip some kind of messages
-    def should_skip?
-      if mailer.respond_to?(:should_skip_facteur_mailing?)
-        mailer.should_skip_facteur_mailing?(self)
-      else
-        false
-      end
-    end
-
-    def deliver
-      if resource.respond_to?(:locale)
-        I18n.with_locale(resource.locale) do
-          inner_deliver
-        end
-      else
-        inner_deliver
-      end
-    end
-
-    def inner_deliver
-      return if sent_at || skipped_at || error_at
-      return skip!('expired') if created_at < 1.day.ago
-
-      mail = if devise_mailer?
-               mailer.send(mailer_method, resource, *mailer_params)
-             elsif mailer_params.is_a?(Hash)
-               # This is new parameterize method
-               mailer.with(mailer_params.with_indifferent_access).send(mailer_method)
-             else
-               mailer.send(mailer_method, *mailer_params)
-             end
-      compute_mail_headers(mail)
-      compute_mail_fields(mail)
-
-      return skip!('skipped') if should_skip?
-      return skip!('blocked_recipient') if will_be_blocked?
-
-      begin
-        mail.deliver_now
-      rescue Net::SMTPFatalError, Net::SMTPSyntaxError => e
-        return reject!(e)
-      end
-
-      self.sent_at ||= DateTime.current
-      save!
-    end
-
-    def skip!(reason)
-      self.skipped_at = Time.current
-      self.skip_reason = reason
-      save!
-    end
-
-    def compute_mail_headers(mail)
-      mail.headers('X-Facteur-Mailing-Id' => id.to_s)
-      mail.headers('X-SMTPAPI' => Oj.dump('unique_args' => { 'mn_id' => id })) if Facteur.provider.to_s == 'sendgrid'
-    end
-
-    def prospect_demo_user?
-      return true if resource.is_a?(Prospect) && resource.demo_user?
-      return resource.prospect.demo_user? if resource.respond_to?(:prospect)
-
-      false
-    end
-
-    def compute_mail_fields(mail)
-      self.subject ||= mail.subject
-      # Mail returns a String instead of an Array for an unparsable address
-      self.from ||= Array(mail.from).join(',').presence
-      self.to ||= Array(mail.to).join(',').presence
-      self.body ||= mail.message.body.presence&.decoded.presence ||
-                    mail.body.presence&.parts&.first&.decoded
-      save!
     end
 
     def sorted_events
@@ -188,26 +70,10 @@ module Facteur
       end
     end
 
-    protected
+    private
 
     def schedule_delivery
       ::Facteur::MailingDeliveryJob.perform_async(id)
-    end
-
-    def devise_mailer?
-      defined?(::Devise::Mailer) && mailer <= ::Devise::Mailer
-    end
-
-    def reject!(error)
-      self.events = (events || []) + [{
-        'event' => 'dropped',
-        'type' => 'smtp_rejected',
-        'reason' => error.message.strip,
-        'provider' => 'smtp',
-        'timestamp' => Time.current.to_f,
-        'provider_event_id' => nil
-      }]
-      save!
     end
 
     def compute_events

@@ -1,8 +1,12 @@
 # frozen_string_literal: true
 
-RSpec.describe Facteur::Mailing, '#deliver' do
+RSpec.describe Facteur::MailingDeliveryService do
   def create_mailing(to: 'jane@facteur.test', mailer_klass: 'TestMailer', **attributes)
-    described_class.create!(mailer_klass: mailer_klass, mailer_method: 'welcome', mailer_params: [to], **attributes)
+    Facteur::Mailing.create!(mailer_klass: mailer_klass, mailer_method: 'welcome', mailer_params: [to], **attributes)
+  end
+
+  def deliver(mailing)
+    described_class.new(mailing).call
   end
 
   let(:mailing) { create_mailing }
@@ -10,7 +14,7 @@ RSpec.describe Facteur::Mailing, '#deliver' do
 
   describe 'headers' do
     it 'delivers the mail with the X-Facteur-Mailing-Id header' do
-      mailing.deliver
+      deliver(mailing)
 
       expect(ActionMailer::Base.deliveries.size).to eq(1)
       expect(delivered_mail['X-Facteur-Mailing-Id'].value).to eq(mailing.id.to_s)
@@ -19,10 +23,10 @@ RSpec.describe Facteur::Mailing, '#deliver' do
     end
 
     it 'delivers a parameterized mailer' do
-      mailing = described_class.create!(mailer_klass: 'TestMailer', mailer_method: 'notification',
-                                        mailer_params: { to: 'john@facteur.test', subject: 'Hi' })
+      mailing = Facteur::Mailing.create!(mailer_klass: 'TestMailer', mailer_method: 'notification',
+                                         mailer_params: { to: 'john@facteur.test', subject: 'Hi' })
 
-      mailing.deliver
+      deliver(mailing)
 
       expect(delivered_mail.to).to eq(['john@facteur.test'])
       expect(delivered_mail['X-Facteur-Mailing-Id'].value).to eq(mailing.id.to_s)
@@ -33,7 +37,7 @@ RSpec.describe Facteur::Mailing, '#deliver' do
       Facteur.provider = :sendgrid
       allow(Rails).to receive(:env).and_return(ActiveSupport::EnvironmentInquirer.new('production'))
 
-      mailing.deliver
+      deliver(mailing)
 
       expect(JSON.parse(delivered_mail['X-SMTPAPI'].value)).to eq('unique_args' => { 'mn_id' => mailing.id })
     end
@@ -42,7 +46,7 @@ RSpec.describe Facteur::Mailing, '#deliver' do
       Facteur.provider = :scaleway
       allow(Rails).to receive(:env).and_return(ActiveSupport::EnvironmentInquirer.new('development'))
 
-      mailing.deliver
+      deliver(mailing)
 
       expect(delivered_mail['X-SMTPAPI']).to be_nil
       expect(delivered_mail['X-Facteur-Mailing-Id'].value).to eq(mailing.id.to_s)
@@ -57,7 +61,7 @@ RSpec.describe Facteur::Mailing, '#deliver' do
       it "records #{error.class} as an error without raising" do
         allow_any_instance_of(Mail::TestMailer).to receive(:deliver!).and_raise(error)
 
-        expect { mailing.deliver }.not_to raise_error
+        expect { deliver(mailing) }.not_to raise_error
 
         mailing.reload
         expect(mailing).to be_current_status_error
@@ -76,7 +80,7 @@ RSpec.describe Facteur::Mailing, '#deliver' do
         attempts += 1
         raise error
       end
-      mailing.deliver
+      deliver(mailing)
 
       Facteur::MailingDeliveryJob.new.perform(mailing.id)
 
@@ -94,7 +98,7 @@ RSpec.describe Facteur::Mailing, '#deliver' do
       it "lets #{error.class} propagate so Sidekiq retries" do
         allow_any_instance_of(Mail::TestMailer).to receive(:deliver!).and_raise(error)
 
-        expect { mailing.deliver }.to raise_error(error.class)
+        expect { deliver(mailing) }.to raise_error(error.class)
 
         mailing.reload
         expect(mailing).to be_current_status_pending
@@ -109,7 +113,7 @@ RSpec.describe Facteur::Mailing, '#deliver' do
       mailing = create_mailing(created_at: 2.days.ago)
       expect(TestMailer).not_to receive(:welcome)
 
-      mailing.deliver
+      deliver(mailing)
 
       mailing.reload
       expect(mailing).to be_current_status_skipped
@@ -121,7 +125,7 @@ RSpec.describe Facteur::Mailing, '#deliver' do
     it 'skips a mailing when the mailer asks to' do
       mailing = create_mailing(mailer_klass: 'SkippingMailer')
 
-      mailing.deliver
+      deliver(mailing)
 
       expect(mailing.reload).to be_current_status_skipped
       expect(mailing.skip_reason).to eq('skipped')
@@ -131,7 +135,7 @@ RSpec.describe Facteur::Mailing, '#deliver' do
     it 'skips a mailing to an @example.com recipient' do
       mailing = create_mailing(to: 'jane@example.com')
 
-      mailing.deliver
+      deliver(mailing)
 
       expect(mailing.reload).to be_current_status_skipped
       expect(mailing.skip_reason).to eq('blocked_recipient')
@@ -141,7 +145,7 @@ RSpec.describe Facteur::Mailing, '#deliver' do
     it 'skips a mailing without recipient' do
       mailing = create_mailing(to: nil)
 
-      mailing.deliver
+      deliver(mailing)
 
       expect(mailing.reload).to be_current_status_skipped
       expect(mailing.skip_reason).to eq('blocked_recipient')
@@ -150,7 +154,7 @@ RSpec.describe Facteur::Mailing, '#deliver' do
 
     it 'does not send a skipped mailing when the job runs again' do
       mailing = create_mailing(to: 'jane@example.com')
-      mailing.deliver
+      deliver(mailing)
       skipped_at = mailing.reload.skipped_at
 
       Facteur::MailingDeliveryJob.new.perform(mailing.id)
@@ -160,7 +164,7 @@ RSpec.describe Facteur::Mailing, '#deliver' do
     end
 
     it 'does not send a sent mailing twice' do
-      mailing.deliver
+      deliver(mailing)
       Facteur::MailingDeliveryJob.new.perform(mailing.id)
 
       expect(ActionMailer::Base.deliveries.size).to eq(1)
