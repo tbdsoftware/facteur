@@ -4,8 +4,6 @@ module Facteur
   # This class represents mail that we have sent. This is used to track which mail we send to whom,
   # and ensure that we do not send an email twice
   class Mailing < ActiveRecord::Base
-    include ::Facteur::ApplicationRecordable
-
     # 'suppressed' is reserved for a future suppression list and is not set yet
     SKIP_REASONS = %w[expired skipped blocked_recipient suppressed].freeze
     ERROR_EVENTS = %w[dropped bounce spamreport].freeze
@@ -51,23 +49,6 @@ module Facteur
         .each_with_index
         .sort_by { |e, i| [e['timestamp'].to_f, i] }
         .map(&:first)
-    end
-
-    def status_class
-      case status.to_sym
-      when :current_status_pending
-        :orange
-      when :current_status_sent, :current_status_processed
-        :black
-      when :current_status_delivered
-        :gray
-      when :current_status_opened, :current_status_clicked
-        :green
-      when :current_status_skipped
-        :yellow
-      when :current_status_error
-        :red
-      end
     end
 
     private
