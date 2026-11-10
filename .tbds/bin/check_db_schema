@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# CI check that a branch's migrations produce its committed schema dump and model annotations, then roll back.
+# Run from a clean checkout of the branch, against an empty database.
+set -euo pipefail
+
+base_ref="${1:?usage: $0 <base-ref>, e.g. origin/dev}"
+head_sha="$(git rev-parse HEAD)"
+merge_base="$(git merge-base "$head_sha" "$base_ref")"
+
+schema=db/schema.rb
+if [[ -f db/structure.sql ]]; then
+  schema=db/structure.sql
+fi
+
+if git diff --quiet "$merge_base" "$head_sha" -- db app/models; then
+  echo "nothing changed under db/ or app/models since $base_ref"
+  exit 0
+fi
+
+set -x
+
+# Seeded on the base branch, so the branch's migrations also run against existing rows.
+git switch --detach "$merge_base"
+bundle install
+bin/rails db:create db:schema:load db:seed
+
+git switch --detach "$head_sha"
+bundle install
+bin/rails db:migrate
+git diff --exit-code -- "$schema"
+bundle exec annotaterb models
+git diff --exit-code -- app/models
+
+if git diff "$merge_base" "$head_sha" -- db/migrate | grep -qF ActiveRecord::IrreversibleMigration; then
+  exit 0
+fi
+# No schema diff after the rollback: a reverted remove_column re-adds the column last, a false positive.
+git diff --name-only --diff-filter=A "$merge_base" "$head_sha" -- db/migrate \
+  | sed -E 's|.*/([0-9]+)_.*|VERSION=\1|' | sort -r \
+  | xargs -t -r -n1 bin/rails db:migrate:down
+git restore -- "$schema"
