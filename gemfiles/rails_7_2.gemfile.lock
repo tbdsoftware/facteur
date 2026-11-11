@@ -1,7 +1,7 @@
 PATH
   remote: ..
   specs:
-    facteur (0.3.0)
+    facteur (0.4.0)
       oj
       rails (>= 7.0)
       sidekiq (>= 6.5)

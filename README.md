@@ -22,8 +22,8 @@ bin/rails db:migrate
 ```
 
 The generator copies the migrations your app does not have yet (`create_facteur_mailings`,
-`add_tracking_to_facteur_mailings`), so an app already using Facteur can run it again to get only the new
-ones. PostgreSQL is required (`jsonb` columns).
+`add_tracking_to_facteur_mailings`, `filter_tokens_in_facteur_mailings`), so an app already using Facteur can run
+it again to get only the new ones. PostgreSQL is required (`jsonb` columns).
 
 Mailings are created with `Facteur::Mailing.create!` (or `Facteur::Mailing::CreateIfUnsentService.new(attributes).call`
 to never send the same mail twice) and delivered by `Facteur::MailingDeliveryJob`. Include `Facteur::DeviseFacteurable` in a Devise model to send
@@ -40,6 +40,33 @@ Rails 7.1, 7.2 and 8.0.
    metadata-only on PostgreSQL 11+, no backfill, no long lock).
 2. Apps sending through Scaleway must set `config.provider = :scaleway`: the default `:sendgrid` now adds
    `X-SMTPAPI` in every environment, production included.
+
+## Upgrading to 0.4.0
+
+0.4.0 secures the webhooks and the stored mails. Before deploying it:
+
+1. Run `bin/rails g facteur:active_record` and `bin/rails db:migrate`. The new `filter_tokens_in_facteur_mailings`
+   migration only changes data: it replaces the Devise tokens of the stored mails with `[FILTERED]` (see
+   [Stored mails](#stored-mails)). It updates the whole table with a regular expression (sequential scan): on a
+   large table, run it at a quiet time. It cannot be rolled back (its `down` restores nothing).
+2. Only the webhook of the configured `provider` keeps its route, unless you list them in `config.webhooks`: a
+   webhook missing from it answers 404.
+3. **SendGrid apps**: enable the Signed Event Webhook in SendGrid (Settings > Mail Settings > Event Webhook >
+   Signature verification) and set `config.sendgrid_webhook_public_key` to the public key it shows. Without it,
+   `POST /facteur/sendgrid` answers 403 and every event is lost.
+4. **Scaleway apps**: the token moves from the path to the query string. The old token is in your request logs
+   (it was in the path, and requests to the old URL keep logging it until its subscription is deleted), so switch
+   to a new one.
+   1. Generate a new token (`SecureRandom.hex(32)`) and store it as `scaleway_webhook_token` in your credentials.
+   2. Set `config.scaleway_topic_arns` to the ARN of your topic (every message is refused with a 403 while it is
+      empty).
+   3. Deploy.
+   4. Immediately subscribe `https://<your host>/facteur/scaleway?facteur_token=<new token>` to the topic (see
+      [Scaleway setup](#scaleway-setup)) and check the subscription is confirmed.
+   5. Delete the subscription to the old `https://<your host>/facteur/scaleway/<old token>` URL.
+
+   Between the deploy and the confirmation, the old URL answers 404: the events of that window only reach Facteur
+   if SNS retries them once the new subscription is confirmed.
 
 ## Upgrading to 0.3.0
 
@@ -64,39 +91,77 @@ These public methods were removed:
 
 ## Configuration
 
+An app sending through Scaleway (e.g. Hamelin):
+
 ```ruby
 # config/initializers/facteur.rb
 Facteur.configure do |config|
-  config.provider = :scaleway # :sendgrid (default) or :scaleway
+  config.provider = :scaleway
+  config.webhooks = %i[scaleway]
   config.scaleway_webhook_token = Rails.application.credentials.dig(:facteur, :scaleway_webhook_token)
+  config.scaleway_topic_arns = ['arn:scw:sns:fr-par:project-<project id>:facteur-tem']
 end
 ```
+
+An app sending through SendGrid:
+
+```ruby
+Facteur.configure do |config|
+  config.provider = :sendgrid
+  config.sendgrid_webhook_public_key = Rails.application.credentials.dig(:facteur, :sendgrid_webhook_public_key)
+end
+```
+
+| Option | Default | |
+| --- | --- | --- |
+| `provider` | `:sendgrid` | `:sendgrid` or `:scaleway`, the provider the mails go through |
+| `webhooks` | `nil` | webhooks whose route is drawn (symbols or strings), e.g. `%i[scaleway]`; `nil` = only the `provider`'s |
+| `sendgrid_webhook_public_key` | `nil` | public key of SendGrid's Signed Event Webhook (base64, as SendGrid shows it) |
+| `scaleway_webhook_token` | `nil` | secret expected in the `facteur_token` query parameter of the Scaleway webhook |
+| `scaleway_topic_arns` | `[]` | SNS topics the Scaleway webhook accepts messages from |
+| `store_body` | `true` | `false` never stores the mail bodies |
 
 - Every mail gets an `X-Facteur-Mailing-Id: <mailing id>` header, whatever the provider.
 - `X-SMTPAPI` (SendGrid unique args) is only added when `provider` is `:sendgrid`, in every environment.
 - Without `scaleway_webhook_token`, the Scaleway endpoint always answers 404. Use a long random value
   (`SecureRandom.hex(32)`).
+- The routes are drawn when the app loads its routes, after the initializers: set `webhooks` in an initializer.
 
 ## Webhooks
 
-| Provider | Endpoint |
-| --- | --- |
-| SendGrid | `POST /facteur/sendgrid` |
-| Scaleway TEM | `POST /facteur/scaleway/<scaleway_webhook_token>` |
+| Provider | Endpoint | Drawn when |
+| --- | --- | --- |
+| SendGrid | `POST /facteur/sendgrid` | `:sendgrid` is in `webhooks` (or is the `provider` when `webhooks` is not set) |
+| Scaleway TEM | `POST /facteur/scaleway?facteur_token=<scaleway_webhook_token>` | `:scaleway` is in `webhooks` (or is the `provider` when `webhooks` is not set) |
 
 The webhooks controller inherits `ActionController::API`, not your `ApplicationController`, so your
-authentication filters do not apply to it.
+authentication filters do not apply to it. Both endpoints answer 413 to a body over 1 MB. SendGrid posts
+`application/json`, which Rails parses before the action runs, so the limit that really protects the app belongs to
+your ingress or proxy (ingress-nginx `proxy-body-size`, 1m by default).
+
+The SendGrid endpoint:
+
+1. answers 403 (and logs an error) when `sendgrid_webhook_public_key` is not set;
+2. verifies the ECDSA signature of the raw body (`X-Twilio-Email-Event-Webhook-Signature` and
+   `X-Twilio-Email-Event-Webhook-Timestamp` headers) with that key, 403 when missing or invalid;
+3. answers 400 when the body is not a JSON array of objects, 413 over 5 000 events;
+4. enqueues `Facteur::MailProviderHookJob` with the events. Answers 200.
 
 The Scaleway endpoint:
 
-1. answers 404 when the token is missing or wrong, and does nothing else;
+1. answers 404 when the `facteur_token` query parameter is missing or wrong, and does nothing else;
 2. reads the raw body (SNS posts JSON as `text/plain`), 400 when it is not a JSON object;
-3. verifies the SNS signature (SignatureVersion 1 = SHA1, 2 = SHA256) with the certificate of
-   `SigningCertURL`, downloaded only from `https://messaging.s3.<region>.scw.cloud` and cached per process;
-   403 when invalid;
-4. `SubscriptionConfirmation`: visits `SubscribeURL` when it is `https://sns.mnq.<region>.scaleway.com`,
+3. answers 403 when its `TopicArn` is not in `scaleway_topic_arns` (every message when the list is empty),
+   before downloading anything;
+4. verifies the SNS signature (SignatureVersion 1 = SHA1, 2 = SHA256), 403 when invalid. The certificate must
+   come from `https://messaging.s3.<region>.scw.cloud/<region>/sns/sns_certificate_<hex>.pem` (`<region>` among
+   `fr-par`, `nl-ams`, `pl-waw`), be issued to `sns.mnq.<region>.scaleway.com` and be currently valid. Up to 10
+   certificates are cached per process. Messages whose `Timestamp` is older than 6 hours or more than 5 minutes
+   ahead are refused, so a captured message cannot be replayed later;
+5. `SubscriptionConfirmation`: visits `SubscribeURL` when it is `https://sns.mnq.<region>.scaleway.com`,
    otherwise logs it so you can confirm the subscription by hand;
-   `Notification`: enqueues `Facteur::MailProviderHookJob` with the TEM payload. Answers 200.
+   `Notification`: enqueues `Facteur::MailProviderHookJob` with the TEM event when `Message` is a JSON object,
+   otherwise logs and ignores it. Answers 200.
 
 Events are attached to their mailing through the `X-Facteur-Mailing-Id` header found in the TEM
 `email_headers` (key compared case-insensitively). Events without a matching mailing are logged and ignored.
@@ -104,24 +169,28 @@ An event already recorded (same provider event id) is ignored, so SNS redeliveri
 
 ## Scaleway setup
 
-> The token is part of the URL path, so it appears in your host's request logs: keep those logs private and
-> rotate the token (credentials + subscription) if they leak.
+> The engine adds `facteur_token` to your app's `filter_parameters`, so the Rails logs (and the tools that honour
+> `filter_parameters`, e.g. lograge or Sentry) show `facteur_token=[FILTERED]`. Access logs of your ingress or
+> proxy still contain the query string: keep them private and rotate the token (credentials + subscription) if
+> they leak.
 
 1. **Topic**: in the Scaleway console, Topics and Events, activate SNS in the project and region of the TEM
    domain (e.g. `fr-par`), create SNS credentials with `can_manage` **and** `can_receive` (both are needed to
    subscribe an URL), then create a topic, e.g. `facteur-tem`.
-2. **Subscription**: subscribe `https://<your host>/facteur/scaleway/<token>` to the topic with the HTTPS
-   protocol, from the console or with the AWS CLI and the SNS credentials:
+2. **Allow-list**: add the topic ARN to `scaleway_topic_arns` and deploy, otherwise the subscription confirmation
+   itself is refused.
+3. **Subscription**: subscribe `https://<your host>/facteur/scaleway?facteur_token=<token>` to the topic with the
+   HTTPS protocol, from the console or with the AWS CLI and the SNS credentials:
 
    ```sh
    aws sns subscribe --endpoint-url https://sns.mnq.fr-par.scaleway.com --region fr-par \
      --topic-arn <topic arn> --protocol https \
-     --notification-endpoint https://<your host>/facteur/scaleway/<token>
+     --notification-endpoint 'https://<your host>/facteur/scaleway?facteur_token=<token>'
    ```
 
    Facteur confirms the subscription by itself; check that it shows as confirmed. If not, the log contains the
    `SubscribeURL` to paste in the console (Topics and Events > Confirm subscription).
-3. **TEM webhook**: the Essential plan allows only **one webhook per domain**, so a single webhook must carry
+4. **TEM webhook**: the Essential plan allows only **one webhook per domain**, so a single webhook must carry
    every event type:
 
    ```sh
@@ -132,6 +201,25 @@ An event already recorded (same provider event id) is ignored, so SNS redeliveri
    ```
 
    Repeat for each sending domain.
+
+## Stored mails
+
+Each mailing stores its subject, sender, recipients and body (`body`), shown on the ActiveAdmin page in a
+sandboxed iframe. The body is never evaluated as a template, and its page is served with a
+`Content-Security-Policy: sandbox` header, so its scripts do not run in the admin's origin, even when the page is
+opened directly.
+
+The value of the `reset_password_token`, `confirmation_token`, `unlock_token` and `invitation_token` URL
+parameters is replaced with `[FILTERED]` before the body is stored, whatever the mailer (e.g. a welcome mail with
+a password reset link). For the `reset_password_instructions`, `confirmation_instructions`, `unlock_instructions`
+and `invitation_instructions` mailings, the token passed to the mailer (first element of `mailer_params`) is
+replaced with `[FILTERED]` once the mailing is sent, skipped or refused by SMTP: until then a Sidekiq retry needs
+it to build the mail again.
+
+Known limit: a token URL-encoded inside another parameter (e.g.
+`redirect=https%3A%2F%2Fexample.com%2Fedit%3Freset_password_token%3D...`) is not filtered.
+
+Set `config.store_body = false` to store no body at all.
 
 ## Statuses
 
@@ -167,10 +255,10 @@ The specs replay real payloads captured on 09/11/2026 (`spec/fixtures/scaleway`)
 if Scaleway changes its format, and refresh the fixtures with what you receive.
 
 1. Start a local receiver that logs the raw requests, e.g. the dummy app
-   (`cd spec/dummy && FACTEUR_SCALEWAY_TOKEN=<token> FACTEUR_INLINE_JOBS=1 bin/rails server -p 3000`, see
-   below) or any small HTTP server, and expose it with `ngrok http 3000`.
-2. Subscribe `https://<ngrok host>/facteur/scaleway/<token>` to a test topic (see Scaleway setup) and check the
-   subscription is confirmed.
+   (`cd spec/dummy && FACTEUR_SCALEWAY_TOKEN=<token> FACTEUR_SCALEWAY_TOPIC_ARNS=<topic arn> FACTEUR_INLINE_JOBS=1
+   bin/rails server -p 3000`, see below) or any small HTTP server, and expose it with `ngrok http 3000`.
+2. Subscribe `https://<ngrok host>/facteur/scaleway?facteur_token=<token>` to a test topic (see Scaleway setup)
+   and check the subscription is confirmed.
 3. Create a temporary TEM webhook on the domain with every event type, pointing to the test topic.
    Keep it about 5 minutes only: meanwhile every event of the domain goes to the test topic. The Essential plan
    allows one webhook per domain, so if the domain already has one, the production webhook must be removed
@@ -179,7 +267,8 @@ if Scaleway changes its format, and refresh the fixtures with what you receive.
    non-existent mailbox (e.g. a random gmail address), a domain without MX, a syntactically invalid address
    (refused immediately with `501 5.1.3`).
 5. Save the received envelopes (keep at least one untouched, with the certificate of its `SigningCertURL`, for
-   the signature spec; mask personal addresses in the others).
+   the signature spec; mask personal addresses in the others). The specs travel to the date of the fixtures
+   (`SnsHelpers::FIXTURES_TIME`), as messages older than 6 hours are refused: update it with the new ones.
 6. Delete the TEM webhook and the subscription (`scw tem webhook delete <id>`).
 
 ## Development
@@ -208,11 +297,17 @@ The dummy app can run as a server to try the webhooks by hand:
 ```sh
 cd spec/dummy
 bin/rails db:prepare
-FACTEUR_SCALEWAY_TOKEN=secret FACTEUR_PROVIDER=scaleway FACTEUR_INLINE_JOBS=1 bin/rails server -p 3000
+FACTEUR_SCALEWAY_TOKEN=secret FACTEUR_SCALEWAY_TOPIC_ARNS=<topic arn> FACTEUR_PROVIDER=scaleway \
+  FACTEUR_INLINE_JOBS=1 bin/rails server -p 3000
 ```
 
-- `FACTEUR_SCALEWAY_TOKEN`: token of `POST /facteur/scaleway/<token>` (404 when unset);
 - `FACTEUR_PROVIDER`: `sendgrid` (default) or `scaleway`;
+- `FACTEUR_WEBHOOKS`: comma-separated webhooks to draw (default `sendgrid,scaleway`);
+- `FACTEUR_SENDGRID_PUBLIC_KEY`: SendGrid's Signed Event Webhook public key (`POST /facteur/sendgrid` answers 403
+  when unset);
+- `FACTEUR_SCALEWAY_TOKEN`: token of `POST /facteur/scaleway?facteur_token=<token>` (404 when unset);
+- `FACTEUR_SCALEWAY_TOPIC_ARNS`: comma-separated topic ARNs accepted by the Scaleway webhook (every message is
+  refused when unset);
 - `FACTEUR_INLINE_JOBS=1`: runs Sidekiq jobs inline, without Redis.
 
 Mails are delivered with the `:test` delivery method, logs go to `spec/dummy/log/development.log`.

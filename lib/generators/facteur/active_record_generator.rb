@@ -10,7 +10,8 @@ module Facteur
 
       MIGRATIONS = {
         "active_record_migration.rb" => "create_facteur_mailings",
-        "add_tracking_to_facteur_mailings.rb" => "add_tracking_to_facteur_mailings"
+        "add_tracking_to_facteur_mailings.rb" => "add_tracking_to_facteur_mailings",
+        "filter_tokens_in_facteur_mailings.rb" => "filter_tokens_in_facteur_mailings"
       }.freeze
 
       def copy_templates
