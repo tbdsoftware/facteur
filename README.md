@@ -32,7 +32,7 @@ Devise notifications through Facteur.
 ## Upgrading (e.g. Hamelin)
 
 Facteur requires Rails >= 7.0 (it uses the positional `enum :status, { ... }` syntax) and is tested on
-Rails 7.1, 7.2 and 8.0.
+Rails 7.1, 7.2 and 8.0 with Ruby 3.4 and Sidekiq 7, and on Rails 8.1 with Ruby 4.0 and Sidekiq 8.
 
 1. Run `bin/rails g facteur:active_record` and `bin/rails db:migrate` **before** deploying the new code:
    `compute_status` reads `skipped_at` on every save, so `Facteur::Mailing.create!` fails until the
@@ -273,7 +273,8 @@ if Scaleway changes its format, and refresh the fixtures with what you receive.
 
 ## Development
 
-Requirements: Ruby 3.4, PostgreSQL. No Redis: specs use `Sidekiq::Testing`.
+Requirements: Ruby 3.4 (Ruby 4.0 for the Rails 8.1 suite), PostgreSQL. No Redis: specs use Sidekiq's testing
+mode.
 
 ```sh
 bundle install
@@ -284,12 +285,20 @@ bundle exec rspec
 The databases default to `postgres://localhost/facteur_test` and `postgres://localhost/facteur_development`;
 set `DATABASE_URL` to use another one.
 
-The root `Gemfile` runs on Rails 7.1. The CI also runs the specs on Rails 7.2 and 8.0, each with its own
-Gemfile and lockfile in `gemfiles/`. Deprecations raise in the specs.
+The root `Gemfile` runs on Rails 7.1 and Sidekiq 7. The CI also runs the specs on Rails 7.2 and 8.0 (Ruby 3.4,
+Sidekiq 7) and on Rails 8.1 (Ruby 4.0, Sidekiq 8), each with its own Gemfile and lockfile in `gemfiles/`.
+Deprecations raise in the specs.
 
 ```sh
 BUNDLE_GEMFILE=$PWD/gemfiles/rails_8_0.gemfile bundle install
 BUNDLE_GEMFILE=$PWD/gemfiles/rails_8_0.gemfile bundle exec rspec
+```
+
+The Rails 8.1 suite needs Ruby 4.0, selected through your version manager (e.g. `RBENV_VERSION=4.0.9`):
+
+```sh
+RBENV_VERSION=4.0.9 BUNDLE_GEMFILE=$PWD/gemfiles/rails_8_1.gemfile bundle install
+RBENV_VERSION=4.0.9 BUNDLE_GEMFILE=$PWD/gemfiles/rails_8_1.gemfile bundle exec rspec
 ```
 
 The dummy app can run as a server to try the webhooks by hand:
