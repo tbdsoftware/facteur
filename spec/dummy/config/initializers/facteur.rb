@@ -10,6 +10,10 @@ end
 
 # Lets the dummy app run as a server without Redis
 if Rails.env.development? && ENV['FACTEUR_INLINE_JOBS'] == '1'
-  require 'sidekiq/testing'
-  Sidekiq::Testing.inline!
+  if Sidekiq.respond_to?(:testing!)
+    Sidekiq.testing!(:inline)
+  else
+    require 'sidekiq/testing'
+    Sidekiq::Testing.inline!
+  end
 end

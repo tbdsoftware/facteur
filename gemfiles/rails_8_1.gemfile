@@ -1,0 +1,6 @@
+# frozen_string_literal: true
+
+# Own Gemfile (and lockfile) so the root Gemfile.lock stays on Rails 7.1
+ENV['RAILS_VERSION'] = '8.1.4'
+ENV['SIDEKIQ_VERSION'] = '8.1'
+eval_gemfile File.expand_path('../Gemfile', __dir__)
